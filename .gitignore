@@ -4,3 +4,7 @@ dist/
 *.log
 .claude/
 web/public/dist/
+# Total Replay disk image: 32MB of copyrighted games, fetched by `npm run fetch-disk`
+web/public/disks/*.hdv
+web/public/disks/*.2mg
+web/public/disks/*.po

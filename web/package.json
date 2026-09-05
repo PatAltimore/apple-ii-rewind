@@ -4,6 +4,7 @@
     "private": true,
     "type": "module",
     "scripts": {
+        "fetch-disk": "node scripts/fetch-total-replay.mjs",
         "predev": "node scripts/build-audio-worklet.mjs",
         "dev": "vite",
         "prebuild": "node scripts/build-audio-worklet.mjs",
