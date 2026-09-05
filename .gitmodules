@@ -1,0 +1,3 @@
+[submodule "web/vendor/apple2js"]
+	path = web/vendor/apple2js
+	url = https://github.com/whscullin/apple2js.git

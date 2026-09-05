@@ -1,0 +1,662 @@
+:root {
+    color-scheme: dark;
+    font-family: system-ui, sans-serif;
+}
+
+body {
+    margin: 0;
+    background: #111;
+    color: #eee;
+}
+
+.app-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #333;
+}
+
+.app-header h1 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.subtitle {
+    font-weight: normal;
+    color: #999;
+    margin-left: 0.5rem;
+}
+
+.app-main {
+    display: flex;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.game-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 592px;
+    max-width: 100%;
+}
+
+.canvas-wrap {
+    position: relative;
+    width: 592px;
+    height: 416px;
+    max-width: 100%;
+    aspect-ratio: 592 / 416;
+}
+
+canvas#screen {
+    background: #000;
+    border: 1px solid #333;
+    /* Keep Apple II pixels crisp when the canvas is scaled. */
+    image-rendering: pixelated;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+@media (max-width: 640px) {
+    .app-main {
+        padding: 0.5rem;
+    }
+
+    .canvas-wrap {
+        width: 100%;
+        height: auto;
+    }
+}
+
+/* Boot/download overlay ------------------------------------------------ */
+.boot-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 6;
+}
+
+.boot-overlay[hidden] {
+    display: none;
+}
+
+.boot-overlay-title {
+    font-size: 1rem;
+    color: #6cf;
+}
+
+.boot-overlay-status {
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+.boot-overlay progress {
+    width: 60%;
+    max-width: 320px;
+    accent-color: #6cf;
+}
+
+/* Controls row --------------------------------------------------------- */
+.controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+    color: #aaa;
+}
+
+.controls button {
+    padding: 0.35rem 0.7rem;
+    border-radius: 5px;
+    border: 1px solid #444;
+    background: #1e1e1e;
+    color: #eee;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.controls button:hover {
+    background: #2a2a2a;
+}
+
+.rewind-thumbnail {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 236px;
+    height: 166px;
+    box-sizing: border-box;
+    border: 2px solid #6cf;
+    background: #000;
+    image-rendering: pixelated;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+    z-index: 5;
+}
+
+/* Rewind scrubber ------------------------------------------------------ */
+.rewind {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: #aaa;
+    width: 100%;
+}
+
+.rewind input[type='range'] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    background: #333;
+    border-radius: 3px;
+    outline: none;
+}
+
+.rewind input[type='range']::-webkit-slider-runnable-track {
+    height: 6px;
+    background: #333;
+    border-radius: 3px;
+}
+
+.rewind input[type='range']::-moz-range-track {
+    height: 6px;
+    background: #333;
+    border-radius: 3px;
+}
+
+/* Large thumb so it is easy to grab on a touchscreen. */
+.rewind input[type='range']::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 28px;
+    height: 28px;
+    margin-top: -11px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 26%, #e2f6ff, #6cf 45%, #1c6a97 100%);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+}
+
+.rewind input[type='range']::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 26%, #e2f6ff, #6cf 45%, #1c6a97 100%);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+}
+
+.rewind input[type='range']:disabled::-webkit-slider-thumb {
+    background: #555;
+    border-color: rgba(255, 255, 255, 0.2);
+    cursor: default;
+}
+
+.rewind input[type='range']:disabled::-moz-range-thumb {
+    background: #555;
+    border-color: rgba(255, 255, 255, 0.2);
+    cursor: default;
+}
+
+#rewind-5s-btn {
+    width: 60px;
+    height: 60px;
+    padding: 0;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 26%, #d8f2ff, #6cf 45%, #1c6a97 100%);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.5),
+        inset 0 3px 4px rgba(255, 255, 255, 0.5),
+        inset 0 -4px 6px rgba(0, 0, 0, 0.35);
+    color: #06202e;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.15;
+    text-align: center;
+    cursor: pointer;
+}
+
+#rewind-5s-btn:active {
+    background: radial-gradient(circle at 32% 26%, #6cf, #1c6a97 60%, #0d3a52 100%);
+    box-shadow:
+        inset 0 3px 6px rgba(0, 0, 0, 0.55),
+        inset 0 -1px 2px rgba(255, 255, 255, 0.15);
+    transform: translateY(2px);
+}
+
+/* Keyboard legend (desktop) ------------------------------------------- */
+.key-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: #999;
+}
+
+.key-legend-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.key-legend-actions span {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+}
+
+.key-legend kbd {
+    display: inline-block;
+    min-width: 1.1em;
+    padding: 0.1rem 0.35rem;
+    border: 1px solid #444;
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: #222;
+    color: #ddd;
+    font-family: inherit;
+    font-size: 0.75rem;
+    text-align: center;
+}
+
+/* Touch controls ------------------------------------------------------- */
+.touch-controls {
+    display: none;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 0.5rem;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.touch-keys-row {
+    display: flex;
+    justify-content: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.touch-key {
+    min-width: 3.2rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid #555;
+    border-bottom-width: 3px;
+    background: #262626;
+    color: #eee;
+    font-size: 0.85rem;
+    font-family: inherit;
+    touch-action: none;
+    cursor: pointer;
+}
+
+.touch-key-wide {
+    min-width: 5.5rem;
+}
+
+.touch-key.pressed,
+.touch-key:active {
+    background: #3a3a3a;
+    border-bottom-width: 1px;
+    transform: translateY(2px);
+}
+
+.touch-key-type.active {
+    border-color: #6cf;
+    color: #6cf;
+}
+
+.touch-controls-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 3.5rem;
+    width: 100%;
+}
+
+.touch-joystick-group,
+.touch-buttons-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.touch-control-label {
+    font-size: 0.7rem;
+    color: #999;
+    white-space: nowrap;
+}
+
+.touch-controls-hint {
+    margin: 0;
+    font-size: 0.72rem;
+    color: #777;
+    text-align: center;
+}
+
+.touch-joystick {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 28%, rgba(108, 204, 255, 0.3), rgba(8, 18, 26, 0.92) 75%);
+    border: 3px solid rgba(108, 204, 255, 0.3);
+    box-shadow:
+        0 3px 10px rgba(0, 0, 0, 0.5),
+        inset 0 6px 14px rgba(0, 0, 0, 0.5),
+        inset 0 -3px 6px rgba(108, 204, 255, 0.08);
+    touch-action: none;
+}
+
+.touch-joystick.touch-joystick-pressed {
+    border-color: rgba(108, 204, 255, 0.6);
+    box-shadow:
+        0 0 16px rgba(108, 204, 255, 0.35),
+        inset 0 6px 14px rgba(0, 0, 0, 0.5),
+        inset 0 -3px 6px rgba(108, 204, 255, 0.15);
+}
+
+.touch-joystick-thumb {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 52px;
+    height: 52px;
+    margin-top: -26px;
+    margin-left: -26px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 26%, #e2f6ff, #6cf 45%, #1c6a97 100%);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    box-shadow:
+        0 4px 10px rgba(0, 0, 0, 0.55),
+        inset 0 3px 5px rgba(255, 255, 255, 0.55),
+        inset 0 -5px 8px rgba(0, 0, 0, 0.3);
+    transition: transform 0.08s ease-out;
+    pointer-events: none;
+}
+
+.touch-mode-switch {
+    display: inline-flex;
+    border: 1px solid #444;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.touch-mode-switch button {
+    padding: 0.3rem 0.7rem;
+    white-space: nowrap;
+    border: none;
+    background: transparent;
+    color: #999;
+    font-size: 0.72rem;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.touch-mode-switch button.active {
+    background: rgba(108, 204, 255, 0.18);
+    color: #6cf;
+}
+
+.touch-buttons {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.touch-btn-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+/* Stagger the two fire buttons like an arcade panel. */
+.touch-btn-wrap:first-child {
+    margin-top: 2rem;
+}
+
+.touch-btn {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 1.1rem;
+    font-weight: 700;
+    font-family: inherit;
+    touch-action: none;
+    cursor: pointer;
+    box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.5),
+        inset 0 3px 4px rgba(255, 255, 255, 0.5),
+        inset 0 -4px 6px rgba(0, 0, 0, 0.35);
+}
+
+.touch-btn-0 {
+    background: radial-gradient(circle at 32% 26%, #ff9a9a, #d63333 50%, #7a1414 100%);
+    border: 2px solid rgba(255, 170, 170, 0.5);
+}
+
+.touch-btn-1 {
+    background: radial-gradient(circle at 32% 26%, #ffe08a, #e0a020 50%, #7a5010 100%);
+    border: 2px solid rgba(255, 220, 150, 0.5);
+}
+
+.touch-btn.pressed,
+.touch-btn:active {
+    filter: brightness(0.75);
+    box-shadow:
+        inset 0 3px 6px rgba(0, 0, 0, 0.55),
+        inset 0 -1px 2px rgba(255, 255, 255, 0.15);
+    transform: translateY(2px);
+}
+
+/* Off-screen but focusable input used to summon the device keyboard.
+   Not display:none / visibility:hidden — those make it unfocusable. */
+.soft-kbd-input {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0.01;
+    border: none;
+    padding: 0;
+    pointer-events: none;
+    /* Stop iOS zooming to the field when it gets focus. */
+    font-size: 16px;
+}
+
+/* Footer / dialogs ----------------------------------------------------- */
+.disclaimer {
+    padding: 0.75rem 1rem;
+    font-size: 0.75rem;
+    color: #888;
+    border-top: 1px solid #333;
+    line-height: 1.5;
+}
+
+.disclaimer a {
+    color: #6cf;
+}
+
+dialog {
+    background: #181818;
+    color: #eee;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 1.25rem;
+    min-width: 320px;
+    max-width: 480px;
+}
+
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+dialog h2 {
+    margin: 0 0 1rem;
+    font-size: 1rem;
+}
+
+dialog label {
+    display: block;
+    font-size: 0.8rem;
+    color: #aaa;
+    margin-bottom: 0.25rem;
+}
+
+dialog input[type='text'] {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.4rem 0.5rem;
+    background: #0c0c0c;
+    border: 1px solid #333;
+    color: #eee;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+dialog menu {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin: 1rem 0 0;
+    padding: 0;
+}
+
+.dialog-error {
+    color: #f87171;
+    font-size: 0.8rem;
+    margin: 0.5rem 0 0;
+}
+
+.dialog-empty {
+    color: #888;
+    font-size: 0.85rem;
+}
+
+.save-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.save-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #2a2a2a;
+}
+
+.save-list li:last-child {
+    border-bottom: none;
+}
+
+.save-list-thumb {
+    width: 74px;
+    height: 52px;
+    flex-shrink: 0;
+    border: 1px solid #333;
+    background: #000;
+    image-rendering: pixelated;
+}
+
+.save-list-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.save-list-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.save-list-date {
+    font-size: 0.75rem;
+    color: #888;
+}
+
+.save-list-actions {
+    display: flex;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.save-list-delete {
+    color: #f87171;
+}
+
+/* Touch vs keyboard UI selection --------------------------------------
+   Coarse-pointer devices with no fine pointer anywhere (phones/tablets)
+   get the on-screen controls; anything with a mouse/trackpad gets the
+   keyboard legend. Placed last so it wins the cascade over the base
+   rules; the body.force-* classes (ControlModeSwitch.ts) override both. */
+@media (pointer: coarse) and (not (any-pointer: fine)) {
+    .key-legend {
+        display: none;
+    }
+
+    .touch-controls {
+        display: flex;
+    }
+}
+
+.control-mode-switch {
+    align-self: center;
+    margin-top: 0.25rem;
+    padding: 0.3rem 0.6rem;
+    background: transparent;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #6cf;
+    font-size: 0.72rem;
+    cursor: pointer;
+}
+
+.control-mode-switch:hover {
+    background: rgba(108, 204, 255, 0.08);
+}
+
+body.force-touch-controls .key-legend {
+    display: none;
+}
+
+body.force-touch-controls .touch-controls {
+    display: flex;
+}
+
+body.force-keyboard-controls .key-legend {
+    display: flex;
+}
+
+body.force-keyboard-controls .touch-controls {
+    display: none;
+}

@@ -1,0 +1,25 @@
+{
+    "compilerOptions": {
+        "module": "esnext",
+        "target": "es2020",
+        "lib": ["DOM", "ES2020"],
+        "moduleResolution": "bundler",
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "resolveJsonModule": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "strictPropertyInitialization": false,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "sourceMap": true,
+        "baseUrl": ".",
+        "paths": {
+            "js/*": ["vendor/apple2js/js/*"],
+            "json/*": ["vendor/apple2js/json/*"],
+            "@/*": ["src/*"]
+        },
+        "types": []
+    },
+    "include": ["src/**/*"]
+}

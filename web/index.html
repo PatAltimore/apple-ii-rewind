@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#111" />
+    <title>Apple II Rewind — Total Replay</title>
+    <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+    <div id="app">
+        <header class="app-header">
+            <h1>Apple II Rewind <span class="subtitle">Total Replay v6.1</span></h1>
+        </header>
+        <main class="app-main">
+            <div class="game-pane">
+                <div class="canvas-wrap">
+                    <canvas id="screen" width="592" height="416" tabindex="0"></canvas>
+                    <img id="rewind-thumbnail" class="rewind-thumbnail" hidden alt="Rewind preview" />
+                    <div id="boot-overlay" class="boot-overlay">
+                        <div class="boot-overlay-title">Loading Total Replay…</div>
+                        <progress id="boot-progress" max="100" value="0"></progress>
+                        <div id="boot-status" class="boot-overlay-status">Downloading 32 MB disk image</div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button id="menu-btn" title="Ctrl-Reset: quit the current game back to the Total Replay menu">
+                        ⏏ Menu
+                    </button>
+                    <button id="save-btn">Save State</button>
+                    <button id="load-btn">Load State</button>
+                    <span id="disk-status">Loading disk…</span>
+                </div>
+                <div class="rewind">
+                    <label for="rewind-slider">Rewind</label>
+                    <input id="rewind-slider" type="range" min="0" max="0" value="0" disabled />
+                    <button id="rewind-5s-btn" title="Rewind 5 seconds (F2)">⏪ -5s</button>
+                </div>
+                <div class="key-legend">
+                    <div class="key-legend-actions">
+                        <span><kbd>← ↑ ↓ →</kbd> <kbd>Return</kbd> <kbd>Esc</kbd> Navigate the launcher and games</span>
+                        <span><kbd>Left Alt</kbd> Open-Apple / button 0 &nbsp; <kbd>Right Alt</kbd> Closed-Apple / button 1</span>
+                        <span><kbd>Delete</kbd> Ctrl-Reset — quit the game back to the menu</span>
+                        <span><kbd>F2</kbd> Rewind 5 seconds &nbsp; 🎮 USB/Bluetooth gamepads act as the joystick</span>
+                    </div>
+                    <button id="switch-to-touch-btn" class="control-mode-switch" type="button">
+                        Switch to touch controls
+                    </button>
+                </div>
+                <div class="touch-controls" id="touch-controls">
+                    <div class="touch-keys-row">
+                        <button class="touch-key" type="button" data-key="ESC">Esc</button>
+                        <button class="touch-key" type="button" data-key="TAB">Tab</button>
+                        <button class="touch-key touch-key-wide" type="button" data-key="SPACE">Space</button>
+                        <button class="touch-key" type="button" data-key="RETURN">Return</button>
+                        <button class="touch-key touch-key-type" id="touch-type-btn" type="button" title="Type with your device keyboard">
+                            ⌨ Type
+                        </button>
+                    </div>
+                    <div class="touch-controls-row">
+                        <div class="touch-joystick-group">
+                            <div class="touch-joystick" id="touch-joystick" aria-label="Joystick">
+                                <div class="touch-joystick-thumb" id="touch-joystick-thumb"></div>
+                            </div>
+                            <div class="touch-mode-switch" role="group" aria-label="Joystick mode">
+                                <button id="joystick-mode-analog" type="button" aria-pressed="true">Joystick</button>
+                                <button id="joystick-mode-arrows" type="button" aria-pressed="false">Arrow keys</button>
+                            </div>
+                        </div>
+                        <div class="touch-buttons-group">
+                            <div class="touch-buttons">
+                                <div class="touch-btn-wrap">
+                                    <button class="touch-btn touch-btn-0" id="touch-btn-0" type="button" aria-label="Open-Apple, button 0">
+                                        0
+                                    </button>
+                                    <span class="touch-control-label">Open-Apple</span>
+                                </div>
+                                <div class="touch-btn-wrap">
+                                    <button class="touch-btn touch-btn-1" id="touch-btn-1" type="button" aria-label="Closed-Apple, button 1">
+                                        1
+                                    </button>
+                                    <span class="touch-control-label">Closed-Apple</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="touch-controls-hint">
+                        In the menu: “Arrow keys” mode moves the cursor, Return launches, Esc goes back.
+                        Menu ⏏ quits a game. Type ⌨ searches by name.
+                    </p>
+                    <button id="switch-to-keyboard-btn" class="control-mode-switch" type="button">
+                        Switch to keyboard controls
+                    </button>
+                </div>
+                <input
+                    id="touch-type-input"
+                    class="soft-kbd-input"
+                    type="text"
+                    autocapitalize="off"
+                    autocomplete="off"
+                    autocorrect="off"
+                    spellcheck="false"
+                    aria-label="Type keys for the Apple II"
+                />
+            </div>
+        </main>
+        <footer class="disclaimer">
+            <a href="https://archive.org/details/TotalReplay" rel="noopener">Total Replay</a> is © 2019–2026
+            <a href="https://github.com/a2-4am/4cade" rel="noopener">4am</a>, MIT licensed; the games and artwork it
+            collects belong to their respective authors. Emulation by
+            <a href="https://github.com/whscullin/apple2js" rel="noopener">apple2js</a> (MIT). This is a
+            non-commercial preservation project for personal use. Save states live in this browser only; the disk image
+            itself is reset on every reload.
+        </footer>
+    </div>
+
+    <dialog id="save-dialog">
+        <form id="save-form" method="dialog">
+            <h2>Save State</h2>
+            <label for="save-name-input">Name</label>
+            <input id="save-name-input" type="text" required maxlength="60" autocomplete="off" />
+            <p id="save-error" class="dialog-error" hidden></p>
+            <menu>
+                <button id="save-cancel-btn" type="button" value="cancel">Cancel</button>
+                <button id="save-confirm-btn" type="submit" value="save">Save</button>
+            </menu>
+        </form>
+    </dialog>
+
+    <dialog id="load-dialog">
+        <h2>Load State</h2>
+        <ul id="load-list" class="save-list"></ul>
+        <p id="load-empty" class="dialog-empty" hidden>No saved states yet.</p>
+        <menu>
+            <button id="load-cancel-btn" type="button" value="cancel">Close</button>
+        </menu>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
