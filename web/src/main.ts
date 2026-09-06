@@ -70,6 +70,7 @@ async function main() {
         modeAnalogBtn: document.querySelector('#joystick-mode-analog')!,
         modeKeysBtn: document.querySelector('#joystick-mode-keys')!,
         keyLayoutSelect: document.querySelector('#joystick-key-layout')!,
+        centeringBtn: document.querySelector('#joystick-centering')!,
         button0: document.querySelector('#touch-btn-0')!,
         button1: document.querySelector('#touch-btn-1')!,
         keyButtons: Array.from(document.querySelectorAll<HTMLElement>('.touch-key[data-key]')),

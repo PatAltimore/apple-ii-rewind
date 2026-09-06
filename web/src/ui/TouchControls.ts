@@ -17,7 +17,15 @@ import {
  *   a real joystick uses. Snapped to 8 compass directions at full
  *   deflection, like a digital stick — that is what almost every Apple II
  *   game expects, and it removes the jitter of free analog positioning on
- *   a touchscreen. A second mode ("Keys") turns the same stick into
+ *   a touchscreen. A "Self-centering" toggle mirrors the mode switch on
+ *   the better real sticks (CH Mach II/III, Kraft): the Apple II itself
+ *   has no idea where centre is — a game just times two potentiometers
+ *   and gets 0-255 per axis, ~127 at rest — so centering was purely the
+ *   stick's springs, and those sticks let you switch the springs out for
+ *   "positive positioning" (the stick stays where you leave it) for
+ *   cursor work and flight sims. With the toggle off, this stick likewise
+ *   stays put on release and positions proportionally (no compass snap)
+ *   from the base's centre. A second mode ("Keys") turns the same stick into
  *   keyboard presses (with typematic repeat) for the Total Replay menu and
  *   the many keyboard-driven games in the library; a picker chooses which
  *   key set — arrow keys, I/J/K/M and the other layouts in
@@ -46,6 +54,8 @@ export interface TouchControlsElements {
     modeKeysBtn: HTMLButtonElement;
     /** Populated from KEY_LAYOUTS; shown only in 'keys' mode. */
     keyLayoutSelect: HTMLSelectElement;
+    /** Self-centering on/off toggle; shown only in 'analog' mode. */
+    centeringBtn: HTMLButtonElement;
     button0: HTMLElement;
     button1: HTMLElement;
     /** Buttons with a `data-key` attribute naming an APPLE_KEY entry. */
@@ -59,10 +69,13 @@ export interface TouchControlsHandle {
     setJoystickMode: (mode: JoystickMode) => void;
     getKeyLayout: () => KeyLayout;
     setKeyLayout: (id: string) => void;
+    isSelfCentering: () => boolean;
+    setSelfCentering: (on: boolean) => void;
 }
 
 const MODE_STORAGE_KEY = 'apple-ii-rewind:joystick-mode';
 const LAYOUT_STORAGE_KEY = 'apple-ii-rewind:joystick-keys';
+const CENTERING_STORAGE_KEY = 'apple-ii-rewind:joystick-centering';
 
 export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): TouchControlsHandle {
     const {
@@ -71,6 +84,7 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
         modeAnalogBtn,
         modeKeysBtn,
         keyLayoutSelect,
+        centeringBtn,
         button0,
         button1,
         keyButtons,
@@ -81,6 +95,7 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
     // --- Joystick -------------------------------------------------------
     let mode: JoystickMode = readStoredMode();
     let layout: KeyLayout = readStoredLayout();
+    let selfCentering = readStoredCentering();
     const heldKey = new HeldKey(io);
     let joystickPointerId: number | null = null;
     // The touch-down point becomes the stick's centre ("floating" stick),
@@ -94,6 +109,7 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
         modeAnalogBtn.setAttribute('aria-pressed', String(next === 'analog'));
         modeKeysBtn.setAttribute('aria-pressed', String(next === 'keys'));
         keyLayoutSelect.hidden = next !== 'keys';
+        centeringBtn.hidden = next !== 'analog';
         resetJoystick();
         try {
             window.localStorage.setItem(MODE_STORAGE_KEY, next);
@@ -122,7 +138,24 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
     }
     keyLayoutSelect.addEventListener('change', () => applyLayout(keyLayoutSelect.value));
 
+    function applyCentering(on: boolean) {
+        selfCentering = on;
+        centeringBtn.classList.toggle('active', on);
+        centeringBtn.setAttribute('aria-pressed', String(on));
+        resetJoystick();
+        try {
+            window.localStorage.setItem(CENTERING_STORAGE_KEY, on ? 'on' : 'off');
+        } catch {
+            /* best-effort persistence */
+        }
+    }
+    centeringBtn.addEventListener('click', () => applyCentering(!selfCentering));
+
+    /** Free-floating ("positive positioning") behaviour is analog-only. */
+    const staysPut = () => mode === 'analog' && !selfCentering;
+
     applyLayout(layout.id);
+    applyCentering(selfCentering);
     applyMode(mode);
 
     function setThumb(dx: number, dy: number) {
@@ -171,8 +204,24 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
         };
     }
 
+    /** Proportional position within the base, small deadzone, no snap. */
+    function clampToBase(rawDx: number, rawDy: number): { dx: number; dy: number } {
+        const dist = Math.hypot(rawDx, rawDy);
+        if (dist < BASE_RADIUS_PX * DEADZONE_RATIO * 0.5) {
+            return { dx: 0, dy: 0 };
+        }
+        const scale = Math.min(1, BASE_RADIUS_PX / dist);
+        return { dx: rawDx * scale, dy: rawDy * scale };
+    }
+
     function updateFromPointer(e: PointerEvent) {
         if (!touchOrigin) {
+            return;
+        }
+        if (staysPut()) {
+            const { dx, dy } = clampToBase(e.clientX - touchOrigin.x, e.clientY - touchOrigin.y);
+            setThumb(dx, dy);
+            setPaddlesFromOffset(dx, dy);
             return;
         }
         const directions = mode === 'analog' || layoutHasDiagonals(layout) ? 8 : 4;
@@ -188,7 +237,16 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
     joystickBase.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         joystickPointerId = e.pointerId;
-        touchOrigin = { x: e.clientX, y: e.clientY };
+        if (staysPut()) {
+            // Absolute positioning from the base's centre, so a tap puts
+            // the stick exactly where the finger is (and a tap on the
+            // centre re-centres it).
+            const r = joystickBase.getBoundingClientRect();
+            touchOrigin = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+            updateFromPointer(e);
+        } else {
+            touchOrigin = { x: e.clientX, y: e.clientY };
+        }
         joystickBase.classList.add('touch-joystick-pressed');
         try {
             joystickBase.setPointerCapture(e.pointerId);
@@ -214,7 +272,12 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
         }
         joystickPointerId = null;
         touchOrigin = null;
-        resetJoystick();
+        if (staysPut()) {
+            // Leave the paddles (and the thumb) where they are.
+            joystickBase.classList.remove('touch-joystick-pressed');
+        } else {
+            resetJoystick();
+        }
     }
     window.addEventListener('pointerup', endJoystickPointer);
     window.addEventListener('pointercancel', endJoystickPointer);
@@ -272,6 +335,8 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
         setJoystickMode: applyMode,
         getKeyLayout: () => layout,
         setKeyLayout: applyLayout,
+        isSelfCentering: () => selfCentering,
+        setSelfCentering: applyCentering,
     };
 }
 
@@ -372,6 +437,14 @@ function readStoredMode(): JoystickMode {
         /* storage unavailable */
     }
     return 'analog';
+}
+
+function readStoredCentering(): boolean {
+    try {
+        return window.localStorage.getItem(CENTERING_STORAGE_KEY) !== 'off';
+    } catch {
+        return true;
+    }
 }
 
 function readStoredLayout(): KeyLayout {

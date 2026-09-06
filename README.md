@@ -11,7 +11,7 @@ Built from the [prince-of-persia-assist](https://github.com/PatAltimore/prince-o
 - A real Apple II system emulator ([apple2js](https://github.com/whscullin/apple2js), Enhanced //e, 128K, 65C02) booting the unmodified Total Replay v6.1 `.hdv` image from an emulated SmartPort hard-drive controller in slot 7.
 - **Rewind**: a snapshot is taken every 2 seconds and kept for 5 minutes. Drag the slider to scrub back through recent play (with a thumbnail preview), or hit **⏪ -5s** / <kbd>F2</kbd>.
 - **Save / Load State**: named snapshots with thumbnails, stored in the browser's IndexedDB. Snapshots are ~170KB, so there is room for hundreds.
-- **Touch controls** on phones/tablets: a floating 8-way joystick (or, toggled to "Keys", keyboard presses with typematic repeat: arrow keys for the launcher and //e games, or the I/J/K/M, I/J/K/L, A/Z+arrows and Q/W/E/A/D/Z/X/C layouts older games used), Open-Apple / Closed-Apple fire buttons, Esc/Tab/Space/Return keys, and a **⌨ Type** button that brings up the device keyboard for searching the library.
+- **Touch controls** on phones/tablets: a floating 8-way joystick with a self-centering toggle (off, it stays where you leave it, like the switch on a CH Mach III or Kraft stick), or, toggled to "Keys", keyboard presses with typematic repeat: arrow keys for the launcher and //e games, or the I/J/K/M, I/J/K/L, A/Z+arrows and Q/W/E/A/D/Z/X/C layouts older games used), Open-Apple / Closed-Apple fire buttons, Esc/Tab/Space/Return keys, and a **⌨ Type** button that brings up the device keyboard for searching the library.
 - USB/Bluetooth gamepads are picked up by apple2js's Gamepad API support and act as the joystick.
 
 ## Controls

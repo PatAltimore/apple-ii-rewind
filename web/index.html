@@ -71,6 +71,9 @@
                             <button id="joystick-mode-keys" type="button" aria-pressed="false">Keys</button>
                         </div>
                         <select id="joystick-key-layout" class="touch-key-layout" aria-label="Keys the joystick presses" hidden></select>
+                        <button id="joystick-centering" class="touch-toggle" type="button" aria-pressed="true" title="Off: the stick stays where you leave it, like a real stick with its centering springs switched out">
+                            Self-centering
+                        </button>
                     </div>
                     <div class="touch-keys-row">
                         <button class="touch-key" type="button" data-key="ESC">Esc</button>
@@ -84,6 +87,7 @@
                     <p class="touch-controls-hint">
                         In the menu: “Keys” mode with Arrow keys moves the cursor, Return ⏎ launches, Esc goes back.
                         Older games list their own movement keys; pick that set to have the stick press them.
+                        Self-centering off leaves the stick where you put it, for cursor and flight-sim games.
                         Menu ⏏ quits a game. Type ⌨ searches by name.
                     </p>
                     <button id="switch-to-keyboard-btn" class="control-mode-switch" type="button">
