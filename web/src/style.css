@@ -430,7 +430,8 @@ canvas#screen {
     gap: 0.4rem;
 }
 
-/* Stagger the two fire buttons like an arcade panel. */
+/* Stagger the two fire buttons like an arcade panel: Closed-Apple
+   (button 1) sits lower-left, Open-Apple (button 0) upper-right. */
 .touch-btn-wrap:first-child {
     margin-top: 2rem;
 }

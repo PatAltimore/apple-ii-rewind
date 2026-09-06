@@ -12,7 +12,8 @@ import { APPLE_KEY, HeldKey, KeyTypingQueue, pressKey, releaseKey } from '../emu
  *   a touchscreen. A second mode turns the same stick into the four arrow
  *   keys (with typematic repeat) for the Total Replay menu and the many
  *   keyboard-driven games in the library.
- * - Two fire buttons: Open-Apple (button 0) and Closed-Apple (button 1).
+ * - Two fire buttons: Closed-Apple (button 1) on the left, Open-Apple
+ *   (button 0) on the right.
  * - A row of keys games and the launcher commonly need (Esc, Tab, Space,
  *   Return) plus a "Type" button that focuses an off-screen text input so
  *   the phone's own keyboard can be used to search the library or type
