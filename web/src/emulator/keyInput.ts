@@ -18,6 +18,16 @@ export const APPLE_KEY = {
 } as const;
 
 /**
+ * Upper-cases an ASCII letter code (a-z -> A-Z), leaving everything else
+ * alone. Both keyboard paths (emulator/keyboard.ts for physical keys,
+ * ui/TouchControls.ts for the phone's soft keyboard) send letters to the
+ * Apple II upper-case only — see ALWAYS_CAPS in keyboard.ts for why.
+ */
+export function toUpperAscii(code: number): number {
+    return code >= 0x61 && code <= 0x7a ? code - 0x20 : code;
+}
+
+/**
  * Presses one key: latches it into the keyboard register (the strobe stays
  * set until the program reads/clears $C010) and marks "a key is down" for
  * the //e's any-key-down bit. `release()` clears only the latter.

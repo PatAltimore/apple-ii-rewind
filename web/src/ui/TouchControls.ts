@@ -1,5 +1,13 @@
 import Apple2IO from 'js/apple2io';
-import { APPLE_KEY, HeldKey, KeyTypingQueue, pressKey, releaseKey } from '../emulator/keyInput';
+import { APPLE_KEY, HeldKey, KeyTypingQueue, pressKey, releaseKey, toUpperAscii } from '../emulator/keyInput';
+import {
+    DEFAULT_KEY_LAYOUT_ID,
+    KEY_LAYOUTS,
+    KeyLayout,
+    findKeyLayout,
+    keyForDirection,
+    layoutHasDiagonals,
+} from '../emulator/keyLayouts';
 
 /**
  * On-screen controls for touch devices (see .touch-controls in style.css,
@@ -9,9 +17,12 @@ import { APPLE_KEY, HeldKey, KeyTypingQueue, pressKey, releaseKey } from '../emu
  *   a real joystick uses. Snapped to 8 compass directions at full
  *   deflection, like a digital stick — that is what almost every Apple II
  *   game expects, and it removes the jitter of free analog positioning on
- *   a touchscreen. A second mode turns the same stick into the four arrow
- *   keys (with typematic repeat) for the Total Replay menu and the many
- *   keyboard-driven games in the library.
+ *   a touchscreen. A second mode ("Keys") turns the same stick into
+ *   keyboard presses (with typematic repeat) for the Total Replay menu and
+ *   the many keyboard-driven games in the library; a picker chooses which
+ *   key set — arrow keys, I/J/K/M and the other layouts in
+ *   emulator/keyLayouts.ts — since pre-//e games had no up/down arrows and
+ *   each chose its own movement keys.
  * - Two fire buttons: Closed-Apple (button 1) on the left, Open-Apple
  *   (button 0) on the right.
  * - A row of keys games and the launcher commonly need (Esc, Tab, Space,
@@ -26,13 +37,15 @@ import { APPLE_KEY, HeldKey, KeyTypingQueue, pressKey, releaseKey } from '../emu
 const BASE_RADIUS_PX = 60;
 const DEADZONE_RATIO = 0.3;
 
-export type JoystickMode = 'analog' | 'arrows';
+export type JoystickMode = 'analog' | 'keys';
 
 export interface TouchControlsElements {
     joystickBase: HTMLElement;
     joystickThumb: HTMLElement;
     modeAnalogBtn: HTMLButtonElement;
-    modeArrowsBtn: HTMLButtonElement;
+    modeKeysBtn: HTMLButtonElement;
+    /** Populated from KEY_LAYOUTS; shown only in 'keys' mode. */
+    keyLayoutSelect: HTMLSelectElement;
     button0: HTMLElement;
     button1: HTMLElement;
     /** Buttons with a `data-key` attribute naming an APPLE_KEY entry. */
@@ -44,17 +57,31 @@ export interface TouchControlsElements {
 export interface TouchControlsHandle {
     getJoystickMode: () => JoystickMode;
     setJoystickMode: (mode: JoystickMode) => void;
+    getKeyLayout: () => KeyLayout;
+    setKeyLayout: (id: string) => void;
 }
 
 const MODE_STORAGE_KEY = 'apple-ii-rewind:joystick-mode';
+const LAYOUT_STORAGE_KEY = 'apple-ii-rewind:joystick-keys';
 
 export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): TouchControlsHandle {
-    const { joystickBase, joystickThumb, modeAnalogBtn, modeArrowsBtn, button0, button1, keyButtons, typeBtn, typeInput } =
-        els;
+    const {
+        joystickBase,
+        joystickThumb,
+        modeAnalogBtn,
+        modeKeysBtn,
+        keyLayoutSelect,
+        button0,
+        button1,
+        keyButtons,
+        typeBtn,
+        typeInput,
+    } = els;
 
     // --- Joystick -------------------------------------------------------
     let mode: JoystickMode = readStoredMode();
-    const heldArrow = new HeldKey(io);
+    let layout: KeyLayout = readStoredLayout();
+    const heldKey = new HeldKey(io);
     let joystickPointerId: number | null = null;
     // The touch-down point becomes the stick's centre ("floating" stick),
     // so an off-centre first tap doesn't read as an immediate shove.
@@ -63,9 +90,10 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
     function applyMode(next: JoystickMode) {
         mode = next;
         modeAnalogBtn.classList.toggle('active', next === 'analog');
-        modeArrowsBtn.classList.toggle('active', next === 'arrows');
+        modeKeysBtn.classList.toggle('active', next === 'keys');
         modeAnalogBtn.setAttribute('aria-pressed', String(next === 'analog'));
-        modeArrowsBtn.setAttribute('aria-pressed', String(next === 'arrows'));
+        modeKeysBtn.setAttribute('aria-pressed', String(next === 'keys'));
+        keyLayoutSelect.hidden = next !== 'keys';
         resetJoystick();
         try {
             window.localStorage.setItem(MODE_STORAGE_KEY, next);
@@ -74,7 +102,27 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
         }
     }
     modeAnalogBtn.addEventListener('click', () => applyMode('analog'));
-    modeArrowsBtn.addEventListener('click', () => applyMode('arrows'));
+    modeKeysBtn.addEventListener('click', () => applyMode('keys'));
+
+    for (const l of KEY_LAYOUTS) {
+        const opt = document.createElement('option');
+        opt.value = l.id;
+        opt.textContent = l.label;
+        keyLayoutSelect.appendChild(opt);
+    }
+    function applyLayout(id: string) {
+        layout = findKeyLayout(id) ?? findKeyLayout(DEFAULT_KEY_LAYOUT_ID)!;
+        keyLayoutSelect.value = layout.id;
+        resetJoystick();
+        try {
+            window.localStorage.setItem(LAYOUT_STORAGE_KEY, layout.id);
+        } catch {
+            /* best-effort persistence */
+        }
+    }
+    keyLayoutSelect.addEventListener('change', () => applyLayout(keyLayoutSelect.value));
+
+    applyLayout(layout.id);
     applyMode(mode);
 
     function setThumb(dx: number, dy: number) {
@@ -90,23 +138,22 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
         io.paddle(1, clamp01((ny * 1.414 + 1) / 2));
     }
 
-    function setArrowFromOffset(dx: number, dy: number) {
-        if (dx === 0 && dy === 0) {
-            heldArrow.release();
-            return;
-        }
-        // Four-way only for arrows: pick the dominant axis.
-        if (Math.abs(dx) >= Math.abs(dy)) {
-            heldArrow.hold(dx > 0 ? APPLE_KEY.RIGHT : APPLE_KEY.LEFT);
+    function setKeyFromOffset(dx: number, dy: number) {
+        // The offset is already snapped to a compass point at full
+        // deflection (4 or 8 points depending on the layout), so rounding
+        // each axis to -1/0/1 names the direction exactly.
+        const code = keyForDirection(layout, Math.round(dx / BASE_RADIUS_PX), Math.round(dy / BASE_RADIUS_PX));
+        if (code === undefined) {
+            heldKey.release();
         } else {
-            heldArrow.hold(dy > 0 ? APPLE_KEY.DOWN : APPLE_KEY.UP);
+            heldKey.hold(code);
         }
     }
 
     function resetJoystick() {
         io.paddle(0, 0.5);
         io.paddle(1, 0.5);
-        heldArrow.release();
+        heldKey.release();
         setThumb(0, 0);
         joystickBase.classList.remove('touch-joystick-pressed');
     }
@@ -128,12 +175,13 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
         if (!touchOrigin) {
             return;
         }
-        const { dx, dy } = snapToCompass(e.clientX - touchOrigin.x, e.clientY - touchOrigin.y, mode === 'analog' ? 8 : 4);
+        const directions = mode === 'analog' || layoutHasDiagonals(layout) ? 8 : 4;
+        const { dx, dy } = snapToCompass(e.clientX - touchOrigin.x, e.clientY - touchOrigin.y, directions);
         setThumb(dx, dy);
         if (mode === 'analog') {
             setPaddlesFromOffset(dx, dy);
         } else {
-            setArrowFromOffset(dx, dy);
+            setKeyFromOffset(dx, dy);
         }
     }
 
@@ -222,6 +270,8 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
     return {
         getJoystickMode: () => mode,
         setJoystickMode: applyMode,
+        getKeyLayout: () => layout,
+        setKeyLayout: applyLayout,
     };
 }
 
@@ -232,7 +282,9 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
  * differ: iOS reports real `key` values on keydown, while Android IMEs
  * report `Unidentified`/`Process` on keydown and deliver the character via
  * `beforeinput` (insertText). Whatever is handled on keydown is
- * `preventDefault`ed so it doesn't also arrive as beforeinput.
+ * `preventDefault`ed so it doesn't also arrive as beforeinput. Letters
+ * are upper-cased on the way in (see toUpperAscii); the input's
+ * autocapitalize="characters" makes the phone keyboard show that too.
  */
 function attachSoftKeyboard(io: Apple2IO, typeBtn: HTMLButtonElement, input: HTMLInputElement): void {
     const typing = new KeyTypingQueue(io);
@@ -267,7 +319,7 @@ function attachSoftKeyboard(io: Apple2IO, typeBtn: HTMLButtonElement, input: HTM
         }
         if (e.key.length === 1) {
             e.preventDefault();
-            let code = e.key.charCodeAt(0);
+            let code = toUpperAscii(e.key.charCodeAt(0));
             if (e.ctrlKey && code >= 0x40 && code < 0x80) {
                 code = (code & 0x1f); // Ctrl-letter
             }
@@ -283,7 +335,7 @@ function attachSoftKeyboard(io: Apple2IO, typeBtn: HTMLButtonElement, input: HTM
             for (const ch of ev.data ?? '') {
                 const code = ch.charCodeAt(0);
                 if (code < 0x80) {
-                    typing.type(code);
+                    typing.type(toUpperAscii(code));
                 }
             }
         } else if (ev.inputType === 'deleteContentBackward') {
@@ -310,13 +362,28 @@ function attachSoftKeyboard(io: Apple2IO, typeBtn: HTMLButtonElement, input: HTM
 function readStoredMode(): JoystickMode {
     try {
         const v = window.localStorage.getItem(MODE_STORAGE_KEY);
-        if (v === 'analog' || v === 'arrows') {
+        if (v === 'analog' || v === 'keys') {
             return v;
+        }
+        if (v === 'arrows') {
+            return 'keys'; // value stored by earlier versions
         }
     } catch {
         /* storage unavailable */
     }
     return 'analog';
+}
+
+function readStoredLayout(): KeyLayout {
+    try {
+        const found = findKeyLayout(window.localStorage.getItem(LAYOUT_STORAGE_KEY));
+        if (found) {
+            return found;
+        }
+    } catch {
+        /* storage unavailable */
+    }
+    return findKeyLayout(DEFAULT_KEY_LAYOUT_ID)!;
 }
 
 function clamp01(v: number): number {

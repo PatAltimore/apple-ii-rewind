@@ -20,28 +20,34 @@ function normalizeAltGraph(event: KeyboardEvent): KeyboardEvent {
 const APP_HOTKEYS = new Set(['F2']);
 
 /**
+ * Letters are always sent upper-case, as if the //e's Caps Lock were
+ * permanently down: the bulk of the Total Replay library predates
+ * lower-case input and ignores or mis-renders lower-case letters, and the
+ * launcher's search is case-insensitive anyway. The physical Caps Lock
+ * key is therefore ignored rather than toggled.
+ */
+const ALWAYS_CAPS = true;
+
+/**
  * Physical-keyboard-to-Apple-II wiring, following apple2js's own Keyboard
  * component (js/components/Keyboard.tsx) minus the on-screen keyboard.
  * Left Alt = Open-Apple (button 0), right Alt = Closed-Apple (button 1),
  * Delete = Ctrl-Reset — which in Total Replay returns to the launcher.
+ * Letters are upper-cased regardless of Shift/Caps Lock (see ALWAYS_CAPS).
  * Listeners are attached to the canvas only, so typing into dialogs never
  * reaches the game.
  */
 export function attachKeyboard(apple2: Apple2, target: HTMLElement): () => void {
-    let capsLock = false;
     let ctrl = false;
 
     const keyDown = (event: KeyboardEvent) => {
         if (APP_HOTKEYS.has(event.key)) {
             return;
         }
-        const { key, keyCode } = mapKeyboardEvent(normalizeAltGraph(event), capsLock, ctrl);
+        const { key, keyCode } = mapKeyboardEvent(normalizeAltGraph(event), ALWAYS_CAPS, ctrl);
 
         if (key === 'CTRL') {
             ctrl = true;
-        }
-        if (key === 'LOCK') {
-            capsLock = !capsLock;
         }
 
         event.preventDefault();

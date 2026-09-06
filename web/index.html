@@ -53,35 +53,37 @@
                             <div class="touch-joystick" id="touch-joystick" aria-label="Joystick">
                                 <div class="touch-joystick-thumb" id="touch-joystick-thumb"></div>
                             </div>
-                            <div class="touch-mode-switch" role="group" aria-label="Joystick mode">
-                                <button id="joystick-mode-analog" type="button" aria-pressed="true">Joystick</button>
-                                <button id="joystick-mode-arrows" type="button" aria-pressed="false">Arrow keys</button>
-                            </div>
                         </div>
                         <div class="touch-buttons-group">
                             <div class="touch-buttons">
                                 <div class="touch-btn-wrap">
                                     <button class="touch-btn touch-btn-1" id="touch-btn-1" type="button" aria-label="Closed-Apple, button 1"></button>
-                                    <span class="touch-control-label">Closed-Apple</span>
                                 </div>
                                 <div class="touch-btn-wrap">
                                     <button class="touch-btn touch-btn-0" id="touch-btn-0" type="button" aria-label="Open-Apple, button 0"></button>
-                                    <span class="touch-control-label">Open-Apple</span>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    <div class="touch-joystick-options">
+                        <div class="touch-mode-switch" role="group" aria-label="Joystick mode">
+                            <button id="joystick-mode-analog" type="button" aria-pressed="true">Joystick</button>
+                            <button id="joystick-mode-keys" type="button" aria-pressed="false">Keys</button>
+                        </div>
+                        <select id="joystick-key-layout" class="touch-key-layout" aria-label="Keys the joystick presses" hidden></select>
+                    </div>
                     <div class="touch-keys-row">
                         <button class="touch-key" type="button" data-key="ESC">Esc</button>
-                        <button class="touch-key" type="button" data-key="TAB">Tab</button>
+                        <button class="touch-key" type="button" data-key="TAB"><span class="touch-key-icon" aria-hidden="true">⇥</span> Tab</button>
                         <button class="touch-key touch-key-wide" type="button" data-key="SPACE">Space</button>
-                        <button class="touch-key" type="button" data-key="RETURN">Return</button>
+                        <button class="touch-key" type="button" data-key="RETURN"><span class="touch-key-icon" aria-hidden="true">⏎</span> Return</button>
                         <button class="touch-key touch-key-type" id="touch-type-btn" type="button" title="Type with your device keyboard">
                             ⌨ Type
                         </button>
                     </div>
                     <p class="touch-controls-hint">
-                        In the menu: “Arrow keys” mode moves the cursor, Return launches, Esc goes back.
+                        In the menu: “Keys” mode with Arrow keys moves the cursor, Return ⏎ launches, Esc goes back.
+                        Older games list their own movement keys; pick that set to have the stick press them.
                         Menu ⏏ quits a game. Type ⌨ searches by name.
                     </p>
                     <button id="switch-to-keyboard-btn" class="control-mode-switch" type="button">
@@ -92,7 +94,7 @@
                     id="touch-type-input"
                     class="soft-kbd-input"
                     type="text"
-                    autocapitalize="off"
+                    autocapitalize="characters"
                     autocomplete="off"
                     autocorrect="off"
                     spellcheck="false"

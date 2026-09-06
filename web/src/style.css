@@ -319,6 +319,11 @@ canvas#screen {
     transform: translateY(2px);
 }
 
+.touch-key-icon {
+    font-size: 1.05em;
+    line-height: 1;
+}
+
 .touch-key-type.active {
     border-color: #6cf;
     color: #6cf;
@@ -338,12 +343,6 @@ canvas#screen {
     flex-direction: column;
     align-items: center;
     gap: 0.5rem;
-}
-
-.touch-control-label {
-    font-size: 0.7rem;
-    color: #999;
-    white-space: nowrap;
 }
 
 .touch-controls-hint {
@@ -415,6 +414,28 @@ canvas#screen {
 .touch-mode-switch button.active {
     background: rgba(108, 204, 255, 0.18);
     color: #6cf;
+}
+
+/* Mode switch and (in Keys mode) the layout picker share one full-width
+   row under the stick and buttons: side by side so the picker doesn't add
+   a row, and outside the joystick column so it doesn't widen that column
+   past a phone screen. */
+.touch-joystick-options {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+}
+
+.touch-key-layout {
+    max-width: 130px;
+    padding: 0.25rem 0.4rem;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #1c1c1c;
+    color: #ccc;
+    font-size: 0.72rem;
+    font-family: inherit;
 }
 
 .touch-buttons {
