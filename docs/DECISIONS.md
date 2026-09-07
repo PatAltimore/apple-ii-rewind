@@ -25,3 +25,11 @@ The template used localStorage with base64-encoded snapshots. With a library of 
 ## 2026-09-05 — F2 for rewind, Delete for Ctrl-Reset
 
 The template's Backspace-to-rewind shortcut collides with the //e Delete key that Total Replay's search box uses, so rewind moved to F2 (an app-only hotkey never forwarded to the emulator). Keyboard Delete keeps apple2js's mapping to Ctrl-Reset, which in Total Replay is "quit to menu" — and an accidental press is recoverable via rewind.
+
+## 2026-09-07 — Cache the disk image with the Cache Storage API, not just HTTP headers
+
+Without any application-level caching, `main.ts` called `fetch()` on the 32MB disk image every page load; whether that actually hit the network depended entirely on the browser's HTTP cache honoring `staticwebapp.config.json`'s `Cache-Control: public, max-age=86400` on `/disks/*` — which caps out at 24 hours and browsers are free to evict sooner (storage pressure, private browsing).
+
+`web/src/emulator/DiskCache.ts` now stores the fetched image in Cache Storage explicitly (`getCachedDisk`/`putCachedDisk`, wired into `loadBlockImageFromUrl` in `EmulatorController.ts`) so a returning visit boots straight from local storage with no network request at all, indefinitely — not just within a day. Verified live: reload after a first load shows no second network request for the `.hdv` and the boot overlay reads "Loaded from local cache".
+
+Correctness risk: the image is always fetched from the same fixed URL (`/disks/TotalReplay.hdv`), so if `fetch-total-replay.mjs`'s pinned version is ever bumped, the *bytes* at that URL change without the URL changing — a naive URL-keyed cache would then serve stale bits forever. Fixed by caching a small version-marker string alongside the image and comparing it against `DiskCache.ts`'s `DISK_VERSION` constant on every load; a mismatch is treated as a cache miss (re-fetched and overwritten). Verified live by hand-downgrading the cached marker to an old version and confirming it triggered a re-fetch and restored the marker. Consequence: bumping the disk image version now requires updating two files (`fetch-total-replay.mjs` and `DiskCache.ts`) — each has a comment pointing at the other.

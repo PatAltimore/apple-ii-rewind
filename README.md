@@ -2,7 +2,7 @@
 
 A browser-playable Apple II running [Total Replay](https://archive.org/details/TotalReplay) (4am's curated hard-drive collection of hundreds of Apple II games), with a gameplay rewind buffer, save/load states, and on-screen joystick and buttons for phones and tablets.
 
-Play it at [https://red-island-06620351e.3.azurestaticapps.net/](https://red-island-06620351e.3.azurestaticapps.net/) (first load downloads the 32 MB disk image).
+Play it at [https://red-island-06620351e.3.azurestaticapps.net/](https://red-island-06620351e.3.azurestaticapps.net/). The first visit downloads the 32 MB disk image; the browser then caches it (via the Cache Storage API, not just HTTP headers), so later visits skip the download and boot straight from the cached copy. Clearing site data, or a private/incognito window, forces a fresh download.
 
 Built from the [prince-of-persia-assist](https://github.com/PatAltimore/prince-of-persia-assist) project as a template, minus that game's hints, cheats, and source-code panes.
 
@@ -46,7 +46,7 @@ npm install
 npm run fetch-disk
 ```
 
-That downloads `Total Replay v6.1.hdv` from [archive.org/details/TotalReplay](https://archive.org/details/TotalReplay) to `web/public/disks/TotalReplay.hdv` and verifies its SHA-256 (`7434fb5d…64be`). To do it by hand instead: download the `.hdv` from that page (or from the [Total Replay releases](https://github.com/a2-4am/4cade/releases)) and save it as `web/public/disks/TotalReplay.hdv`. The `disks/` folder is gitignored, so it won't be committed by accident. If archive.org publishes a newer build, update the URL and checksum in `web/scripts/fetch-total-replay.mjs` after confirming it boots.
+That downloads `Total Replay v6.1.hdv` from [archive.org/details/TotalReplay](https://archive.org/details/TotalReplay) to `web/public/disks/TotalReplay.hdv` and verifies its SHA-256 (`7434fb5d…64be`). To do it by hand instead: download the `.hdv` from that page (or from the [Total Replay releases](https://github.com/a2-4am/4cade/releases)) and save it as `web/public/disks/TotalReplay.hdv`. The `disks/` folder is gitignored, so it won't be committed by accident. If archive.org publishes a newer build, update the URL and checksum in `web/scripts/fetch-total-replay.mjs`, **and** bump `DISK_VERSION` in `web/src/emulator/DiskCache.ts` — otherwise browsers that already cached the old build keep serving it instead of fetching the new one — after confirming it boots.
 
 The Azure workflow runs the same script before every build, so deployments never depend on the file being checked in.
 

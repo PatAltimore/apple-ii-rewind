@@ -118,7 +118,7 @@ async function main() {
     });
 
     try {
-        await loadBlockImageFromUrl(smartport, 1, DISK_URL, (loaded, total) => {
+        const { fromCache } = await loadBlockImageFromUrl(smartport, 1, DISK_URL, (loaded, total) => {
             if (total) {
                 bootProgress.value = (loaded / total) * 100;
                 bootStatus.textContent = `Downloading disk image… ${formatMB(loaded)} / ${formatMB(total)} MB`;
@@ -127,6 +127,14 @@ async function main() {
                 bootStatus.textContent = `Downloading disk image… ${formatMB(loaded)} MB`;
             }
         });
+        if (fromCache) {
+            // Overwrites the "Downloading…" text the progress callback just
+            // set (it still fires once, at 100%, on a cache hit) so the
+            // brief overlay flash reads correctly instead of implying a
+            // download that didn't happen.
+            bootProgress.value = 100;
+            bootStatus.textContent = 'Loaded from local cache';
+        }
     } catch (err) {
         statusEl.textContent = 'Failed to load disk image';
         bootStatus.textContent = 'Failed to load the disk image — check the console and reload.';

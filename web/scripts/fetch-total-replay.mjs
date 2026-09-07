@@ -10,6 +10,10 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// If you bump `version`/`url`/`sha256` here for a new Total Replay build,
+// also bump `DISK_VERSION` in web/src/emulator/DiskCache.ts — otherwise
+// returning visitors keep getting served their old cached copy from
+// Cache Storage instead of the new one.
 export const TOTAL_REPLAY = {
     version: '6.1',
     url: 'https://archive.org/download/TotalReplay/Total%20Replay%20v6.1.hdv',

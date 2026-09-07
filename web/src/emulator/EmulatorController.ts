@@ -4,6 +4,7 @@ import { CPU6502 } from '@whscullin/cpu6502';
 import { BLOCK_FORMATS } from 'js/formats/types';
 import { includes } from 'js/types';
 import SyncSmartPort from './SyncSmartPort';
+import { getCachedDisk, putCachedDisk } from './DiskCache';
 
 export interface EmulatorHandles {
     apple2: Apple2;
@@ -79,30 +80,57 @@ export function hardReset(apple2: Apple2): void {
 
 export type ProgressCallback = (loadedBytes: number, totalBytes: number | undefined) => void;
 
+export interface LoadBlockImageResult {
+    /** True when the image came from Cache Storage instead of the network — see DiskCache.ts. */
+    fromCache: boolean;
+}
+
 /**
- * Fetches a block-device image (.hdv/.2mg/.po) and mounts it in the given
- * drive. Streams the download so the caller can show progress — Total
- * Replay is 32MB, which is a noticeable wait on a phone.
+ * Mounts a block-device image (.hdv/.2mg/.po) in the given drive, from
+ * Cache Storage if a previous visit already downloaded and cached it (see
+ * DiskCache.ts), otherwise fetching it fresh and caching it for next time.
+ * A fresh fetch streams the download so the caller can show progress —
+ * Total Replay is 32MB, which is a noticeable wait on a phone.
  */
 export async function loadBlockImageFromUrl(
     smartport: SyncSmartPort,
     driveNo: 1 | 2,
     url: string,
     onProgress?: ProgressCallback
-): Promise<void> {
-    const rawData = await fetchWithProgress(url, onProgress);
+): Promise<LoadBlockImageResult> {
+    const cached = await getCachedDisk(url);
+    let rawData: ArrayBuffer;
+    if (cached) {
+        rawData = cached;
+        onProgress?.(cached.byteLength, cached.byteLength);
+    } else {
+        rawData = await fetchAndCache(url, onProgress);
+    }
+
     const { name, ext } = parseImageUrl(url);
     if (!includes(BLOCK_FORMATS, ext)) {
         throw new Error(`Unrecognized block image extension: "${ext}"`);
     }
     smartport.mount(driveNo, name, ext, rawData);
+    return { fromCache: cached !== undefined };
 }
 
-async function fetchWithProgress(url: string, onProgress?: ProgressCallback): Promise<ArrayBuffer> {
+async function fetchAndCache(url: string, onProgress?: ProgressCallback): Promise<ArrayBuffer> {
     const response = await fetch(url);
     if (!response.ok) {
         throw new Error(`Failed to fetch disk image: ${response.status} ${response.statusText}`);
     }
+    // Cache Storage needs its own, never-read copy of the response — clone
+    // it before either stream is consumed, then read the original for the
+    // caller and cache the clone in the background (don't block boot on
+    // the write completing).
+    const toCache = response.clone();
+    const rawData = await readWithProgress(response, onProgress);
+    void putCachedDisk(url, toCache);
+    return rawData;
+}
+
+async function readWithProgress(response: Response, onProgress?: ProgressCallback): Promise<ArrayBuffer> {
     const lengthHeader = response.headers.get('Content-Length');
     const total = lengthHeader ? Number(lengthHeader) : undefined;
     if (!response.body || !onProgress) {
