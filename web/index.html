@@ -57,10 +57,12 @@
                         <div class="touch-buttons-group">
                             <div class="touch-buttons">
                                 <div class="touch-btn-wrap">
-                                    <button class="touch-btn touch-btn-1" id="touch-btn-1" type="button" aria-label="Closed-Apple, button 1"></button>
+                                    <button class="touch-btn touch-btn-left" id="touch-fire-left" type="button"></button>
+                                    <span class="touch-btn-label" id="touch-fire-left-label"></span>
                                 </div>
                                 <div class="touch-btn-wrap">
-                                    <button class="touch-btn touch-btn-0" id="touch-btn-0" type="button" aria-label="Open-Apple, button 0"></button>
+                                    <button class="touch-btn touch-btn-right" id="touch-fire-right" type="button"></button>
+                                    <span class="touch-btn-label" id="touch-fire-right-label"></span>
                                 </div>
                             </div>
                         </div>
@@ -74,10 +76,12 @@
                         <button id="joystick-centering" class="touch-toggle" type="button" aria-pressed="true" title="Off: the stick stays where you leave it, like a real stick with its centering springs switched out">
                             Self-centering
                         </button>
+                        <button id="swap-buttons" class="touch-toggle" type="button" aria-pressed="false" title="Exchange which on-screen button is button 0 and which is button 1">
+                            Swap buttons
+                        </button>
                     </div>
                     <div class="touch-keys-row">
                         <button class="touch-key" type="button" data-key="ESC">Esc</button>
-                        <button class="touch-key" type="button" data-key="TAB"><span class="touch-key-icon" aria-hidden="true">⇥</span> Tab</button>
                         <button class="touch-key touch-key-wide" type="button" data-key="SPACE">Space</button>
                         <button class="touch-key" type="button" data-key="RETURN"><span class="touch-key-icon" aria-hidden="true">⏎</span> Return</button>
                         <button class="touch-key touch-key-type" id="touch-type-btn" type="button" title="Type with your device keyboard">
@@ -88,6 +92,7 @@
                         In the menu: “Keys” mode with Arrow keys moves the cursor, Return ⏎ launches, Esc goes back.
                         Older games list their own movement keys; pick that set to have the stick press them.
                         Self-centering off leaves the stick where you put it, for cursor and flight-sim games.
+                        Swap buttons if a game expects button 0 on the other side.
                         Menu ⏏ quits a game. Type ⌨ searches by name.
                     </p>
                     <button id="switch-to-keyboard-btn" class="control-mode-switch" type="button">

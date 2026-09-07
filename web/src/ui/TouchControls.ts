@@ -31,9 +31,12 @@ import {
  *   key set — arrow keys, I/J/K/M and the other layouts in
  *   emulator/keyLayouts.ts — since pre-//e games had no up/down arrows and
  *   each chose its own movement keys.
- * - Two fire buttons: Closed-Apple (button 1) on the left, Open-Apple
- *   (button 0) on the right.
- * - A row of keys games and the launcher commonly need (Esc, Tab, Space,
+ * - Two fire buttons, labelled with their button number. By default
+ *   button 1 (Closed-Apple) is on the left and button 0 (Open-Apple) on
+ *   the right; a "Swap buttons" toggle exchanges them, because games that
+ *   use both (Raster Blaster's flippers, for one) assume a particular
+ *   left/right order and there is no convention across the library.
+ * - A row of keys games and the launcher commonly need (Esc, Space,
  *   Return) plus a "Type" button that focuses an off-screen text input so
  *   the phone's own keyboard can be used to search the library or type
  *   into a game.
@@ -56,8 +59,11 @@ export interface TouchControlsElements {
     keyLayoutSelect: HTMLSelectElement;
     /** Self-centering on/off toggle; shown only in 'analog' mode. */
     centeringBtn: HTMLButtonElement;
-    button0: HTMLElement;
-    button1: HTMLElement;
+    fireLeft: HTMLElement;
+    fireLeftLabel: HTMLElement;
+    fireRight: HTMLElement;
+    fireRightLabel: HTMLElement;
+    swapButtonsBtn: HTMLButtonElement;
     /** Buttons with a `data-key` attribute naming an APPLE_KEY entry. */
     keyButtons: HTMLElement[];
     typeBtn: HTMLButtonElement;
@@ -71,11 +77,15 @@ export interface TouchControlsHandle {
     setKeyLayout: (id: string) => void;
     isSelfCentering: () => boolean;
     setSelfCentering: (on: boolean) => void;
+    /** True when the left on-screen button is button 0 (default: button 1). */
+    isButtonsSwapped: () => boolean;
+    setButtonsSwapped: (swapped: boolean) => void;
 }
 
 const MODE_STORAGE_KEY = 'apple-ii-rewind:joystick-mode';
 const LAYOUT_STORAGE_KEY = 'apple-ii-rewind:joystick-keys';
 const CENTERING_STORAGE_KEY = 'apple-ii-rewind:joystick-centering';
+const SWAP_STORAGE_KEY = 'apple-ii-rewind:swap-buttons';
 
 export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): TouchControlsHandle {
     const {
@@ -85,8 +95,11 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
         modeKeysBtn,
         keyLayoutSelect,
         centeringBtn,
-        button0,
-        button1,
+        fireLeft,
+        fireLeftLabel,
+        fireRight,
+        fireRightLabel,
+        swapButtonsBtn,
         keyButtons,
         typeBtn,
         typeInput,
@@ -283,13 +296,20 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
     window.addEventListener('pointercancel', endJoystickPointer);
 
     // --- Fire buttons ---------------------------------------------------
-    function wireFireButton(el: HTMLElement, button: 0 | 1) {
+    let swapped = readStoredSwap();
+    const leftButtonNo = (): 0 | 1 => (swapped ? 0 : 1);
+
+    function wireFireButton(el: HTMLElement, buttonNo: () => 0 | 1) {
         let activePointer: number | null = null;
+        // Remembered from pointerdown so a swap mid-press still releases
+        // the button that was actually pressed.
+        let heldButton: 0 | 1 | null = null;
         el.addEventListener('pointerdown', (e) => {
             e.preventDefault();
             activePointer = e.pointerId;
+            heldButton = buttonNo();
             el.classList.add('pressed');
-            io.buttonDown(button, true);
+            io.buttonDown(heldButton, true);
         });
         const release = (e: PointerEvent) => {
             if (activePointer !== null && e.pointerId !== activePointer) {
@@ -297,14 +317,38 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
             }
             activePointer = null;
             el.classList.remove('pressed');
-            io.buttonDown(button, false);
+            if (heldButton !== null) {
+                io.buttonDown(heldButton, false);
+                heldButton = null;
+            }
         };
         el.addEventListener('pointerup', release);
         el.addEventListener('pointercancel', release);
         el.addEventListener('pointerleave', release);
     }
-    wireFireButton(button0, 0);
-    wireFireButton(button1, 1);
+    wireFireButton(fireLeft, leftButtonNo);
+    wireFireButton(fireRight, () => (leftButtonNo() === 0 ? 1 : 0));
+
+    function labelFireButton(el: HTMLElement, label: HTMLElement, n: 0 | 1) {
+        const name = n === 0 ? 'Open-Apple' : 'Closed-Apple';
+        label.textContent = String(n);
+        el.setAttribute('aria-label', `${name}, button ${n}`);
+        el.title = name;
+    }
+    function applySwap(next: boolean) {
+        swapped = next;
+        labelFireButton(fireLeft, fireLeftLabel, leftButtonNo());
+        labelFireButton(fireRight, fireRightLabel, leftButtonNo() === 0 ? 1 : 0);
+        swapButtonsBtn.classList.toggle('active', next);
+        swapButtonsBtn.setAttribute('aria-pressed', String(next));
+        try {
+            window.localStorage.setItem(SWAP_STORAGE_KEY, next ? 'on' : 'off');
+        } catch {
+            /* best-effort persistence */
+        }
+    }
+    swapButtonsBtn.addEventListener('click', () => applySwap(!swapped));
+    applySwap(swapped);
 
     // --- Key buttons ----------------------------------------------------
     for (const el of keyButtons) {
@@ -337,6 +381,8 @@ export function attachTouchControls(io: Apple2IO, els: TouchControlsElements): T
         setKeyLayout: applyLayout,
         isSelfCentering: () => selfCentering,
         setSelfCentering: applyCentering,
+        isButtonsSwapped: () => swapped,
+        setButtonsSwapped: applySwap,
     };
 }
 
@@ -437,6 +483,14 @@ function readStoredMode(): JoystickMode {
         /* storage unavailable */
     }
     return 'analog';
+}
+
+function readStoredSwap(): boolean {
+    try {
+        return window.localStorage.getItem(SWAP_STORAGE_KEY) === 'on';
+    } catch {
+        return false;
+    }
 }
 
 function readStoredCentering(): boolean {
