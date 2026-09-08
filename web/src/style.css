@@ -160,17 +160,9 @@ canvas#screen {
    button styling; their visibility follows .key-legend's rules — see the
    "Touch vs keyboard UI selection" block near the end of this file. */
 
-/* Applesoft boot mode (main.ts's BASIC_BOOT_MODE, ?boot=basic) --------
-   Hides every button/slider row — a raw cold-booted BASIC prompt has no
-   use for the game's Save/Load/rewind/movement-key UI, and there's no
-   Total Replay session underneath to reset/quit back to. #applesoft-hint
-   (shown instead) is the only way back: reload without ?boot=basic. */
-body.applesoft-mode .controls,
-body.applesoft-mode .rewind,
-body.applesoft-mode .key-legend,
-body.applesoft-mode .touch-controls {
-    display: none;
-}
+/* Applesoft boot mode (main.ts's BASIC_BOOT_MODE, ?boot=basic) hides
+   every button/slider/key-legend row — see the rule near the end of this
+   file for why it has to live there, not here. */
 
 .applesoft-hint {
     display: none;
@@ -791,5 +783,27 @@ body.force-keyboard-controls .controls-desktop {
 }
 
 body.force-keyboard-controls .touch-controls {
+    display: none;
+}
+
+/* Applesoft boot mode (main.ts's BASIC_BOOT_MODE, ?boot=basic) --------
+   Hides every button/slider/key-legend row — a raw cold-booted BASIC
+   prompt has no use for Total Replay's Save/Load/rewind/movement-key UI,
+   and there's no Total Replay session underneath to reset/quit back to.
+   #applesoft-hint (shown instead) is the only way back.
+
+   Placed after the force-touch-controls/force-keyboard-controls rules
+   above (equal specificity — two class selectors each) specifically so
+   it wins the cascade over them by source order: force-keyboard-controls
+   is a *persistent* per-browser choice (ControlModeSwitch.ts,
+   localStorage), so a visitor who ever chose it while playing Total
+   Replay would still have it set on returning here, and their
+   .key-legend/.controls-desktop would stay visible if this rule
+   preceded that one instead — confirmed live as a real bug, not just a
+   theoretical ordering concern. */
+body.applesoft-mode .controls,
+body.applesoft-mode .rewind,
+body.applesoft-mode .key-legend,
+body.applesoft-mode .touch-controls {
     display: none;
 }

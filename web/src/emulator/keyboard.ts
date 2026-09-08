@@ -35,15 +35,20 @@ function isFullscreenEscape(event: KeyboardEvent): boolean {
 
 /**
  * Backspace is reserved too, but — unlike Escape and F2 — only while the
- * game view is fullscreen: that's when RewindScrubber.ts's
- * attachRewindButton additionally treats it as the "rewind 5s" hotkey (see
- * its doc comment), since the on-screen rewind bar isn't reachable in
- * that mode. Outside fullscreen, Backspace must reach the emulator as
- * normal — it's the //e's Delete key, which Total Replay's search box and
- * many games rely on for text editing.
+ * game view is fullscreen *and* `reserveBackspace` says it's wanted at
+ * all: that's when RewindScrubber.ts's attachRewindButton additionally
+ * treats it as the "rewind 5s" hotkey (see its doc comment), since the
+ * on-screen rewind bar isn't reachable in that mode. `reserveBackspace`
+ * is false in Applesoft's own boot mode (main.ts's BASIC_BOOT_MODE):
+ * there, Backspace is needed for its ordinary job — erasing the last
+ * typed character at the `]` prompt — even while fullscreen, since there
+ * is no game session to rewind through in the first place. Outside
+ * fullscreen (or with reserving turned off), Backspace always reaches
+ * the emulator as normal — it's the //e's Delete key, which Total
+ * Replay's search box and many games also rely on for text editing.
  */
-function isFullscreenBackspace(event: KeyboardEvent): boolean {
-    return event.key === 'Backspace' && currentFullscreenElement() !== null;
+function isFullscreenBackspace(event: KeyboardEvent, reserveBackspace: boolean): boolean {
+    return reserveBackspace && event.key === 'Backspace' && currentFullscreenElement() !== null;
 }
 
 /**
@@ -55,6 +60,36 @@ function isFullscreenBackspace(event: KeyboardEvent): boolean {
  */
 const ALWAYS_CAPS = true;
 
+export interface KeyboardOptions {
+    /**
+     * False in Applesoft's boot mode — see `isFullscreenBackspace`'s
+     * comment for why Backspace shouldn't be taken over there even while
+     * fullscreen. Defaults to true (Total Replay's normal behavior).
+     */
+    reserveFullscreenBackspace?: boolean;
+    /**
+     * True in Applesoft's boot mode. Sends Backspace as ASCII 8 (the
+     * classic Apple II left-arrow/BS code) instead of the ASCII 127
+     * ("DELETE") apple2js's own keyboard mapping normally sends for it.
+     *
+     * Confirmed live against this ROM: at Applesoft's `]` prompt, 127 is
+     * *not* treated as backspace at all — GETLN just echoes it as an
+     * ordinary character (a solid block glyph) and appends it to the
+     * input line, same as any other keystroke; 8 correctly erases the
+     * previous character from both the screen and the line GETLN will
+     * actually parse (verified by backspacing over a stray character,
+     * typing a replacement, and confirming the executed line reflected
+     * only the correction, not both keystrokes).
+     *
+     * Off by default: Total Replay's own input handling (search box,
+     * in-game text entry) almost certainly doesn't go through bare
+     * Applesoft GETLN the way a cold-booted `]` prompt does, and hasn't
+     * been tested against this remapping — changing its Backspace
+     * behavior isn't something to risk on an assumption.
+     */
+    backspaceAsLeftArrow?: boolean;
+}
+
 /**
  * Physical-keyboard-to-Apple-II wiring, following apple2js's own Keyboard
  * component (js/components/Keyboard.tsx) minus the on-screen keyboard.
@@ -63,21 +98,21 @@ const ALWAYS_CAPS = true;
  * Letters are upper-cased regardless of Shift/Caps Lock (see ALWAYS_CAPS).
  * Listeners are attached to the canvas only, so typing into dialogs never
  * reaches the game.
- *
- * `onHardReset`, if given, is called whenever Delete/Ctrl-Reset fires a
- * real reset — main.ts uses it to drop out of Applesoft break mode (see
- * EmulatorController.ts's `breakToApplesoft`) when the player Ctrl-Resets
- * back to Total Replay's menu, since any reset is by definition an exit
- * from that mode.
  */
-export function attachKeyboard(apple2: Apple2, target: HTMLElement, onHardReset?: () => void): () => void {
+/** ASCII BS / left-arrow — see `KeyboardOptions.backspaceAsLeftArrow`. */
+const LEFT_ARROW_CODE = 0x08;
+
+export function attachKeyboard(apple2: Apple2, target: HTMLElement, options: KeyboardOptions = {}): () => void {
+    const reserveFullscreenBackspace = options.reserveFullscreenBackspace ?? true;
+    const backspaceAsLeftArrow = options.backspaceAsLeftArrow ?? false;
     let ctrl = false;
 
     const keyDown = (event: KeyboardEvent) => {
-        if (APP_HOTKEYS.has(event.key) || isFullscreenEscape(event) || isFullscreenBackspace(event)) {
+        if (APP_HOTKEYS.has(event.key) || isFullscreenEscape(event) || isFullscreenBackspace(event, reserveFullscreenBackspace)) {
             return;
         }
-        const { key, keyCode } = mapKeyboardEvent(normalizeAltGraph(event), ALWAYS_CAPS, ctrl);
+        const { key, keyCode: mappedKeyCode } = mapKeyboardEvent(normalizeAltGraph(event), ALWAYS_CAPS, ctrl);
+        const keyCode = backspaceAsLeftArrow && key === 'DELETE' ? LEFT_ARROW_CODE : mappedKeyCode;
 
         if (key === 'CTRL') {
             ctrl = true;
@@ -87,7 +122,6 @@ export function attachKeyboard(apple2: Apple2, target: HTMLElement, onHardReset?
 
         if (key === 'RESET') {
             hardReset(apple2);
-            onHardReset?.();
             return;
         }
 
@@ -103,7 +137,7 @@ export function attachKeyboard(apple2: Apple2, target: HTMLElement, onHardReset?
     };
 
     const keyUp = (event: KeyboardEvent) => {
-        if (APP_HOTKEYS.has(event.key) || isFullscreenEscape(event) || isFullscreenBackspace(event)) {
+        if (APP_HOTKEYS.has(event.key) || isFullscreenEscape(event) || isFullscreenBackspace(event, reserveFullscreenBackspace)) {
             return;
         }
         const { key } = mapKeyboardEvent(normalizeAltGraph(event));

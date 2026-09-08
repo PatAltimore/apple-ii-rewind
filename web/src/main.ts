@@ -51,12 +51,19 @@ const REWIND_CAPACITY = REWIND_TOTAL_MS / REWIND_SNAPSHOT_INTERVAL_MS;
 const REWIND_BUTTON_SECONDS = 5;
 const REWIND_HOTKEY = 'F2';
 
-// Backspace additionally rewinds, but only while fullscreen — see
-// keyboard.ts's isFullscreenBackspace and RewindScrubber.ts's
-// attachRewindButton doc comments for why it's conditional rather than
-// always-on (it's Total Replay's own text-editing key otherwise).
+// Backspace additionally rewinds, but only while fullscreen in Total
+// Replay mode — see keyboard.ts's isFullscreenBackspace and
+// RewindScrubber.ts's attachRewindButton doc comments for why it's
+// conditional rather than always-on (it's Total Replay's own
+// text-editing key otherwise). Never in BASIC_BOOT_MODE: there,
+// Backspace has to always erase the last typed character at the `]`
+// prompt, fullscreen or not — there is no game session to rewind
+// through in the first place.
 function isRewindHotkey(event: KeyboardEvent): boolean {
-    return event.key === REWIND_HOTKEY || (event.key === 'Backspace' && currentFullscreenElement() !== null);
+    return (
+        event.key === REWIND_HOTKEY ||
+        (!BASIC_BOOT_MODE && event.key === 'Backspace' && currentFullscreenElement() !== null)
+    );
 }
 
 function formatMB(bytes: number): string {
@@ -134,7 +141,10 @@ async function main() {
         __touchControls: touchControls,
     });
 
-    attachKeyboard(apple2, canvas);
+    attachKeyboard(apple2, canvas, {
+        reserveFullscreenBackspace: !BASIC_BOOT_MODE,
+        backspaceAsLeftArrow: BASIC_BOOT_MODE,
+    });
     canvas.addEventListener('click', () => canvas.focus());
     canvas.focus();
 
