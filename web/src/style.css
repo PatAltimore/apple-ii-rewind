@@ -160,13 +160,11 @@ canvas#screen {
    button styling; their visibility follows .key-legend's rules — see the
    "Touch vs keyboard UI selection" block near the end of this file. */
 
-/* Applesoft break mode ---------------------------------------------------
-   Hides every button/slider row once main.ts's setApplesoftMode(true)
-   fires (see EmulatorController.ts's breakToApplesoft) — a raw BASIC
-   prompt has no use for the game's Save/Load/rewind/movement-key UI.
-   Ctrl-Reset (Delete) is the only way back, same as on real hardware;
-   #applesoft-hint says so, since that's not otherwise visible on screen
-   once .key-legend (which used to explain Delete) is also hidden. */
+/* Applesoft boot mode (main.ts's BASIC_BOOT_MODE, ?boot=basic) --------
+   Hides every button/slider row — a raw cold-booted BASIC prompt has no
+   use for the game's Save/Load/rewind/movement-key UI, and there's no
+   Total Replay session underneath to reset/quit back to. #applesoft-hint
+   (shown instead) is the only way back: reload without ?boot=basic. */
 body.applesoft-mode .controls,
 body.applesoft-mode .rewind,
 body.applesoft-mode .key-legend,
@@ -195,6 +193,16 @@ body.applesoft-mode .applesoft-hint {
     color: #ddd;
     font-family: inherit;
     font-size: 0.72rem;
+}
+
+.applesoft-hint a {
+    color: #6cf;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.applesoft-hint a:hover {
+    text-decoration: underline;
 }
 
 .rewind-thumbnail {

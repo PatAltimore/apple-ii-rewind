@@ -4,7 +4,7 @@
  * scrubber, save/load states, on-screen touch controls, keyboard.
  */
 import { Apple2 } from 'js/apple2';
-import { bootEmulator, breakToApplesoft, hardReset, loadBlockImageFromUrl } from './emulator/EmulatorController';
+import { bootEmulator, hardReset, loadBlockImageFromUrl } from './emulator/EmulatorController';
 import { attachKeyboard } from './emulator/keyboard';
 import { RewindBuffer, RewindRecorder } from './emulator/snapshot/RewindBuffer';
 import { captureSnapshot } from './emulator/snapshot/SnapshotSerializer';
@@ -16,6 +16,28 @@ import { attachControlModeSwitch } from './ui/ControlModeSwitch';
 import { attachFullscreenToggle, currentFullscreenElement } from './ui/Fullscreen';
 
 const DISK_URL = '/disks/TotalReplay.hdv';
+
+/**
+ * `?boot=basic` skips mounting Total Replay's drive entirely and lets the
+ * //e's own ROM autoboot logic do what it would on real hardware with no
+ * bootable device anywhere: fall through to a genuine, correctly
+ * initialized Applesoft cold boot. This replaced an earlier approach that
+ * tried to jump a *running* Total Replay session straight into Applesoft
+ * mid-session — confirmed working for the prompt itself (it rendered and
+ * echoed keystrokes correctly) but pressing Return to submit a line
+ * reliably dropped into the machine-language monitor instead of running
+ * it, evidently missing some further state a genuine cold boot sets up
+ * that a warm jump doesn't (see docs/DECISIONS.md's 2026-09-08 entry).
+ * A real fresh boot sidesteps that entirely by using the exact same
+ * boot path already proven to work for Total Replay itself, just never
+ * loading a drive.
+ *
+ * The trade-off: since nothing is ever mounted in this mode, there's no
+ * soft reset vector for Ctrl-Reset to return to, so the only way back to
+ * Total Replay is reloading the page without this query parameter — see
+ * the "Total Replay" link `applesoft-hint` shows in this mode.
+ */
+const BASIC_BOOT_MODE = new URLSearchParams(location.search).get('boot') === 'basic';
 
 // A snapshot excludes the hard drive (see EmulatorController.ts) and so
 // measures ~170KB: two 48K RAM banks, MMU/language-card banks, CPU and
@@ -68,13 +90,24 @@ async function main() {
         () => captureThumbnail(canvas)
     );
 
-    const { apple2, smartport } = await bootEmulator(canvas, () => {
-        if (recording) {
-            recorder.onTick();
-        }
-        scrubberHandle?.syncRange();
-    });
+    const { apple2, smartport } = await bootEmulator(
+        canvas,
+        () => {
+            if (recording) {
+                recorder.onTick();
+            }
+            scrubberHandle?.syncRange();
+        },
+        { emptySlotStubs: BASIC_BOOT_MODE }
+    );
     apple2Ref = apple2;
+
+    // Set once at boot, not toggled at runtime — see BASIC_BOOT_MODE's
+    // comment above for why there's no in-session transition anymore.
+    // Hides the game-session UI (Save/Load/rewind bar/movement legend),
+    // none of which has anything to do while typing BASIC; #applesoft-hint
+    // (shown instead) explains how to get back.
+    document.body.classList.toggle('applesoft-mode', BASIC_BOOT_MODE);
 
     const touchControls = attachTouchControls(apple2.getIO(), {
         joystickBase: document.querySelector('#touch-joystick')!,
@@ -101,36 +134,35 @@ async function main() {
         __touchControls: touchControls,
     });
 
-    // Whether the machine has been broken into a raw Applesoft prompt
-    // (see breakToApplesoft in EmulatorController.ts) rather than running
-    // Total Replay's menu or a game — tracked as a body class so
-    // style.css can hide the game-session UI (Save/Load/rewind/movement
-    // legend), which has nothing useful to do while typing BASIC. Any
-    // hard reset — via the Menu button or Delete/Ctrl-Reset — is by
-    // definition an exit from this mode, since it's the only way in.
-    function setApplesoftMode(on: boolean) {
-        document.body.classList.toggle('applesoft-mode', on);
-    }
-
-    attachKeyboard(apple2, canvas, () => setApplesoftMode(false));
+    attachKeyboard(apple2, canvas);
     canvas.addEventListener('click', () => canvas.focus());
     canvas.focus();
 
     // Ctrl-Reset. Total Replay installs its own reset handler that
-    // relaunches the menu, so this doubles as "quit game".
+    // relaunches the menu, so this doubles as "quit game". In basic-boot
+    // mode nothing installs a soft vector, so this just re-runs the same
+    // cold boot — a harmless (arguably useful) "reset my BASIC session".
     menuBtn.addEventListener('click', () => {
         hardReset(apple2);
-        setApplesoftMode(false);
         canvas.focus();
     });
 
+    // Leaves Total Replay entirely for a fresh Applesoft-only boot — see
+    // BASIC_BOOT_MODE's comment for why this is a full reload rather than
+    // an in-session jump.
     applesoftBtn.addEventListener('click', () => {
-        breakToApplesoft(apple2);
-        setApplesoftMode(true);
-        canvas.focus();
+        const url = new URL(location.href);
+        url.searchParams.set('boot', 'basic');
+        location.href = url.toString();
     });
 
-    attachFullscreenToggle(fullscreenBtn, canvasWrap);
+    // The only way back from basic-boot mode — see BASIC_BOOT_MODE's comment.
+    const totalReplayLink = document.querySelector<HTMLAnchorElement>('#total-replay-link');
+    if (totalReplayLink) {
+        totalReplayLink.href = location.pathname;
+    }
+
+    attachFullscreenToggle(fullscreenBtn, canvasWrap, canvas);
 
     scrubberHandle = attachRewindScrubber(rewindSlider, apple2, rewindBuffer, canvas, rewindThumbnail);
     attachRewindButton(rewind5sBtn, apple2, rewindBuffer, canvas, REWIND_BUTTON_SECONDS, isRewindHotkey);
@@ -149,33 +181,41 @@ async function main() {
         loadCancelBtn: document.querySelector('#load-cancel-btn')!,
     });
 
-    try {
-        const { fromCache } = await loadBlockImageFromUrl(smartport, 1, DISK_URL, (loaded, total) => {
-            if (total) {
-                bootProgress.value = (loaded / total) * 100;
-                bootStatus.textContent = `Downloading disk image… ${formatMB(loaded)} / ${formatMB(total)} MB`;
-            } else {
-                bootProgress.removeAttribute('value');
-                bootStatus.textContent = `Downloading disk image… ${formatMB(loaded)} MB`;
+    if (BASIC_BOOT_MODE) {
+        // No drive to mount — the //e's own ROM autoboot finds nothing
+        // bootable anywhere and falls through to Applesoft on its own.
+        bootOverlay.hidden = true;
+        statusEl.textContent = 'Applesoft BASIC';
+    } else {
+        try {
+            const { fromCache } = await loadBlockImageFromUrl(smartport, 1, DISK_URL, (loaded, total) => {
+                if (total) {
+                    bootProgress.value = (loaded / total) * 100;
+                    bootStatus.textContent = `Downloading disk image… ${formatMB(loaded)} / ${formatMB(total)} MB`;
+                } else {
+                    bootProgress.removeAttribute('value');
+                    bootStatus.textContent = `Downloading disk image… ${formatMB(loaded)} MB`;
+                }
+            });
+            if (fromCache) {
+                // Overwrites the "Downloading…" text the progress callback
+                // just set (it still fires once, at 100%, on a cache hit)
+                // so the brief overlay flash reads correctly instead of
+                // implying a download that didn't happen.
+                bootProgress.value = 100;
+                bootStatus.textContent = 'Loaded from local cache';
             }
-        });
-        if (fromCache) {
-            // Overwrites the "Downloading…" text the progress callback just
-            // set (it still fires once, at 100%, on a cache hit) so the
-            // brief overlay flash reads correctly instead of implying a
-            // download that didn't happen.
-            bootProgress.value = 100;
-            bootStatus.textContent = 'Loaded from local cache';
+        } catch (err) {
+            statusEl.textContent = 'Failed to load disk image';
+            bootStatus.textContent = 'Failed to load the disk image — check the console and reload.';
+            console.error(err);
+            return;
         }
-    } catch (err) {
-        statusEl.textContent = 'Failed to load disk image';
-        bootStatus.textContent = 'Failed to load the disk image — check the console and reload.';
-        console.error(err);
-        return;
+
+        bootOverlay.hidden = true;
+        statusEl.textContent = 'Total Replay';
     }
 
-    bootOverlay.hidden = true;
-    statusEl.textContent = 'Total Replay';
     recording = true;
     apple2.reset();
     apple2.run();

@@ -60,13 +60,61 @@ async function exitFullscreen(): Promise<void> {
     }
 }
 
-/** Wires a button to toggle `target` in and out of fullscreen. */
-export function attachFullscreenToggle(button: HTMLButtonElement, target: HTMLElement): FullscreenHandle {
+/** The game's native resolution — see index.html's `<canvas width height>`. */
+const GAME_WIDTH = 592;
+const GAME_HEIGHT = 416;
+const GAME_ASPECT = GAME_WIDTH / GAME_HEIGHT;
+
+/**
+ * Sizes the canvas to the largest it can be at its native aspect ratio
+ * without overflowing the viewport, letterboxing only the unavoidable
+ * remainder (a 592:416 ≈ 1.42:1 game can never exactly fill a 16:9 or
+ * ultrawide display without either cropping or distorting it).
+ *
+ * Computed in JS and applied as inline styles — which win over any CSS
+ * rule, including style.css's own `:fullscreen` sizing, which stays only
+ * as a fallback for the brief instant before this runs — rather than
+ * relying purely on CSS `aspect-ratio` + `max-width`/`max-height` on the
+ * canvas. That combination is exactly correct on paper, but a `<canvas>`
+ * is a "replaced element" with its own intrinsic size (from its `width`/
+ * `height` HTML attributes) the way `<img>`/`<video>` are, and cross-browser
+ * behavior for replaced elements sizing themselves from `aspect-ratio`
+ * inside `max-width`/`max-height` constraints has known inconsistencies;
+ * computing the target pixels directly removes any doubt.
+ */
+function fitCanvasToViewport(canvas: HTMLCanvasElement): void {
+    const viewportRatio = window.innerWidth / window.innerHeight;
+    const width = viewportRatio > GAME_ASPECT ? window.innerHeight * GAME_ASPECT : window.innerWidth;
+    const height = viewportRatio > GAME_ASPECT ? window.innerHeight : window.innerWidth / GAME_ASPECT;
+    canvas.style.width = `${Math.floor(width)}px`;
+    canvas.style.height = `${Math.floor(height)}px`;
+}
+
+/** Reverts to style.css's normal (non-fullscreen) sizing rules. */
+function clearFittedCanvasSize(canvas: HTMLCanvasElement): void {
+    canvas.style.width = '';
+    canvas.style.height = '';
+}
+
+/** Wires a button to toggle `target` in and out of fullscreen, resizing `canvas` to fit while it's active. */
+export function attachFullscreenToggle(
+    button: HTMLButtonElement,
+    target: HTMLElement,
+    canvas: HTMLCanvasElement
+): FullscreenHandle {
     const isFullscreen = () => currentFullscreenElement() === target;
 
     const updateLabel = () => {
         button.textContent = isFullscreen() ? '⛶ Exit Fullscreen' : '⛶ Fullscreen';
         button.setAttribute('aria-pressed', String(isFullscreen()));
+    };
+
+    const updateCanvasSize = () => {
+        if (isFullscreen()) {
+            fitCanvasToViewport(canvas);
+        } else {
+            clearFittedCanvasSize(canvas);
+        }
     };
 
     button.addEventListener('click', () => {
@@ -83,11 +131,24 @@ export function attachFullscreenToggle(button: HTMLButtonElement, target: HTMLEl
         });
     });
 
-    // Keeps the label correct however fullscreen ends — our own button,
-    // the browser's native Escape gesture, or the browser's own
-    // fullscreen-exit UI (e.g. an on-screen "Press Esc to exit" banner).
-    document.addEventListener('fullscreenchange', updateLabel);
-    document.addEventListener('webkitfullscreenchange', updateLabel);
+    // Keeps the label and canvas size correct however fullscreen changes —
+    // our own button, the browser's native Escape gesture, its own
+    // fullscreen-exit UI (e.g. an on-screen "Press Esc to exit" banner),
+    // or (via 'resize') the display/window changing shape while active,
+    // e.g. an external monitor being unplugged or a tablet rotating.
+    document.addEventListener('fullscreenchange', () => {
+        updateLabel();
+        updateCanvasSize();
+    });
+    document.addEventListener('webkitfullscreenchange', () => {
+        updateLabel();
+        updateCanvasSize();
+    });
+    window.addEventListener('resize', () => {
+        if (isFullscreen()) {
+            fitCanvasToViewport(canvas);
+        }
+    });
     updateLabel();
 
     return { isFullscreen };
