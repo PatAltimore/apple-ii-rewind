@@ -108,10 +108,18 @@ export function attachRewindScrubber(
  * name). Jumps to the snapshot closest to N seconds before the newest one,
  * restores it, truncates the now-diverged future, and refocuses the canvas.
  *
- * The hotkey is a function key the Apple II has no use for (keyboard.ts
- * lists it in APP_HOTKEYS so it is never forwarded to the emulator);
- * Backspace is *not* used because it is the //e's Delete key, which Total
- * Replay's search box and many games rely on.
+ * `isHotkey` decides which keydowns trigger it — a predicate rather than
+ * a fixed key, because this app actually wants two: F2 always (a function
+ * key the Apple II has no use for; keyboard.ts lists it in APP_HOTKEYS so
+ * it's never forwarded to the emulator), and Backspace *only* while the
+ * game view is fullscreen (there's no on-screen rewind bar to reach in
+ * that mode — see style.css's `:fullscreen` rules — and Backspace is a
+ * more reliable key than a function key once the browser/OS chrome that
+ * would otherwise show what F2 does is gone). Outside fullscreen,
+ * Backspace is deliberately *not* a rewind hotkey: it's the //e's Delete
+ * key, which Total Replay's search box and many games rely on for text
+ * editing, so keyboard.ts only withholds it from the emulator under that
+ * same fullscreen condition.
  */
 export function attachRewindButton(
     button: HTMLButtonElement,
@@ -119,7 +127,7 @@ export function attachRewindButton(
     buffer: RewindBuffer,
     canvas: HTMLElement,
     seconds: number,
-    hotkey: string
+    isHotkey: (event: KeyboardEvent) => boolean
 ): void {
     const doRewind = () => {
         const index = buffer.indexSecondsAgo(seconds);
@@ -140,7 +148,7 @@ export function attachRewindButton(
     button.addEventListener('click', doRewind);
 
     canvas.addEventListener('keydown', (event) => {
-        if (event.key === hotkey) {
+        if (isHotkey(event)) {
             event.preventDefault();
             doRewind();
         }

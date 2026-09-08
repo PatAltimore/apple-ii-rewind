@@ -4,7 +4,7 @@
  * scrubber, save/load states, on-screen touch controls, keyboard.
  */
 import { Apple2 } from 'js/apple2';
-import { bootEmulator, hardReset, loadBlockImageFromUrl } from './emulator/EmulatorController';
+import { bootEmulator, breakToApplesoft, hardReset, loadBlockImageFromUrl } from './emulator/EmulatorController';
 import { attachKeyboard } from './emulator/keyboard';
 import { RewindBuffer, RewindRecorder } from './emulator/snapshot/RewindBuffer';
 import { captureSnapshot } from './emulator/snapshot/SnapshotSerializer';
@@ -13,6 +13,7 @@ import { attachRewindScrubber, attachRewindButton } from './ui/RewindScrubber';
 import { attachSaveLoadMenu } from './ui/SaveMenu';
 import { attachTouchControls } from './ui/TouchControls';
 import { attachControlModeSwitch } from './ui/ControlModeSwitch';
+import { attachFullscreenToggle, currentFullscreenElement } from './ui/Fullscreen';
 
 const DISK_URL = '/disks/TotalReplay.hdv';
 
@@ -28,14 +29,25 @@ const REWIND_CAPACITY = REWIND_TOTAL_MS / REWIND_SNAPSHOT_INTERVAL_MS;
 const REWIND_BUTTON_SECONDS = 5;
 const REWIND_HOTKEY = 'F2';
 
+// Backspace additionally rewinds, but only while fullscreen — see
+// keyboard.ts's isFullscreenBackspace and RewindScrubber.ts's
+// attachRewindButton doc comments for why it's conditional rather than
+// always-on (it's Total Replay's own text-editing key otherwise).
+function isRewindHotkey(event: KeyboardEvent): boolean {
+    return event.key === REWIND_HOTKEY || (event.key === 'Backspace' && currentFullscreenElement() !== null);
+}
+
 function formatMB(bytes: number): string {
     return (bytes / (1024 * 1024)).toFixed(1);
 }
 
 async function main() {
     const canvas = document.querySelector<HTMLCanvasElement>('#screen')!;
+    const canvasWrap = document.querySelector<HTMLElement>('#canvas-wrap')!;
     const statusEl = document.querySelector<HTMLElement>('#disk-status')!;
     const menuBtn = document.querySelector<HTMLButtonElement>('#menu-btn')!;
+    const applesoftBtn = document.querySelector<HTMLButtonElement>('#applesoft-btn')!;
+    const fullscreenBtn = document.querySelector<HTMLButtonElement>('#fullscreen-btn')!;
     const rewindSlider = document.querySelector<HTMLInputElement>('#rewind-slider')!;
     const rewind5sBtn = document.querySelector<HTMLButtonElement>('#rewind-5s-btn')!;
     const rewindThumbnail = document.querySelector<HTMLImageElement>('#rewind-thumbnail')!;
@@ -89,7 +101,18 @@ async function main() {
         __touchControls: touchControls,
     });
 
-    attachKeyboard(apple2, canvas);
+    // Whether the machine has been broken into a raw Applesoft prompt
+    // (see breakToApplesoft in EmulatorController.ts) rather than running
+    // Total Replay's menu or a game — tracked as a body class so
+    // style.css can hide the game-session UI (Save/Load/rewind/movement
+    // legend), which has nothing useful to do while typing BASIC. Any
+    // hard reset — via the Menu button or Delete/Ctrl-Reset — is by
+    // definition an exit from this mode, since it's the only way in.
+    function setApplesoftMode(on: boolean) {
+        document.body.classList.toggle('applesoft-mode', on);
+    }
+
+    attachKeyboard(apple2, canvas, () => setApplesoftMode(false));
     canvas.addEventListener('click', () => canvas.focus());
     canvas.focus();
 
@@ -97,11 +120,20 @@ async function main() {
     // relaunches the menu, so this doubles as "quit game".
     menuBtn.addEventListener('click', () => {
         hardReset(apple2);
+        setApplesoftMode(false);
         canvas.focus();
     });
 
+    applesoftBtn.addEventListener('click', () => {
+        breakToApplesoft(apple2);
+        setApplesoftMode(true);
+        canvas.focus();
+    });
+
+    attachFullscreenToggle(fullscreenBtn, canvasWrap);
+
     scrubberHandle = attachRewindScrubber(rewindSlider, apple2, rewindBuffer, canvas, rewindThumbnail);
-    attachRewindButton(rewind5sBtn, apple2, rewindBuffer, canvas, REWIND_BUTTON_SECONDS, REWIND_HOTKEY);
+    attachRewindButton(rewind5sBtn, apple2, rewindBuffer, canvas, REWIND_BUTTON_SECONDS, isRewindHotkey);
 
     attachSaveLoadMenu(apple2, canvas, statusEl, {
         saveBtn: document.querySelector('#save-btn')!,

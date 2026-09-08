@@ -14,7 +14,7 @@
         </header>
         <main class="app-main">
             <div class="game-pane">
-                <div class="canvas-wrap">
+                <div class="canvas-wrap" id="canvas-wrap">
                     <canvas id="screen" width="592" height="416" tabindex="0"></canvas>
                     <img id="rewind-thumbnail" class="rewind-thumbnail" hidden alt="Rewind preview" />
                     <div id="boot-overlay" class="boot-overlay">
@@ -31,17 +31,31 @@
                     <button id="load-btn">Load State</button>
                     <span id="disk-status">Loading disk…</span>
                 </div>
+                <div class="controls controls-desktop">
+                    <button
+                        id="applesoft-btn"
+                        title="Break into an Applesoft BASIC prompt, bypassing Total Replay's menu. Delete (Ctrl-Reset) returns to it."
+                    >
+                        ] Applesoft
+                    </button>
+                    <button id="fullscreen-btn" title="Fullscreen the game view (Esc to leave)">⛶ Fullscreen</button>
+                </div>
+                <p id="applesoft-hint" class="applesoft-hint">
+                    Applesoft BASIC prompt — a preview, submitting a line with Return isn't fully reliable yet.
+                    Press <kbd>Delete</kbd> (Ctrl-Reset) to return to Total Replay.
+                </p>
                 <div class="rewind">
                     <label for="rewind-slider">Rewind</label>
                     <input id="rewind-slider" type="range" min="0" max="0" value="0" disabled />
-                    <button id="rewind-5s-btn" title="Rewind 5 seconds (F2)">⏪ -5s</button>
+                    <button id="rewind-5s-btn" title="Rewind 5 seconds (F2, or Backspace while fullscreen)">⏪ -5s</button>
                 </div>
                 <div class="key-legend">
                     <div class="key-legend-actions">
                         <span><kbd>← ↑ ↓ →</kbd> <kbd>Return</kbd> <kbd>Esc</kbd> Navigate the launcher and games</span>
                         <span><kbd>Left Alt</kbd> Open-Apple / button 0 &nbsp; <kbd>Right Alt</kbd> Closed-Apple / button 1</span>
                         <span><kbd>Delete</kbd> Ctrl-Reset — quit the game back to the menu</span>
-                        <span><kbd>F2</kbd> Rewind 5 seconds &nbsp; 🎮 USB/Bluetooth gamepads act as the joystick</span>
+                        <span><kbd>F2</kbd> Rewind 5 seconds (also <kbd>Backspace</kbd> while fullscreen)</span>
+                        <span>🎮 USB/Bluetooth gamepads act as the joystick</span>
                     </div>
                     <button id="switch-to-touch-btn" class="control-mode-switch" type="button">
                         Switch to touch controls

@@ -68,6 +68,37 @@ canvas#screen {
     }
 }
 
+/* Fullscreen game view --------------------------------------------------
+   Fullscreening .canvas-wrap (not the whole page — see ui/Fullscreen.ts)
+   means everything outside it (buttons, rewind bar, footer) simply isn't
+   part of what's rendered while active, with no JS needed to hide it.
+   The fullscreen element gets the whole viewport regardless of its own
+   width/height, and that's rarely the game's native 592:416 ratio, so
+   these rules letterbox instead of stretching: the wrapper centers its
+   content on a black backdrop, and the canvas is capped to `max-width`/
+   `max-height` with its aspect ratio still pinned, so it scales up to fit
+   without distorting. */
+.canvas-wrap:fullscreen,
+.canvas-wrap:-webkit-full-screen {
+    width: 100vw;
+    height: 100vh;
+    max-width: none;
+    aspect-ratio: unset;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+}
+
+.canvas-wrap:fullscreen canvas#screen,
+.canvas-wrap:-webkit-full-screen canvas#screen {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    aspect-ratio: 592 / 416;
+}
+
 /* Boot/download overlay ------------------------------------------------ */
 .boot-overlay {
     position: absolute;
@@ -123,6 +154,47 @@ canvas#screen {
 
 .controls button:hover {
     background: #2a2a2a;
+}
+
+/* Desktop-only controls (Applesoft break, fullscreen) share .controls'
+   button styling; their visibility follows .key-legend's rules — see the
+   "Touch vs keyboard UI selection" block near the end of this file. */
+
+/* Applesoft break mode ---------------------------------------------------
+   Hides every button/slider row once main.ts's setApplesoftMode(true)
+   fires (see EmulatorController.ts's breakToApplesoft) — a raw BASIC
+   prompt has no use for the game's Save/Load/rewind/movement-key UI.
+   Ctrl-Reset (Delete) is the only way back, same as on real hardware;
+   #applesoft-hint says so, since that's not otherwise visible on screen
+   once .key-legend (which used to explain Delete) is also hidden. */
+body.applesoft-mode .controls,
+body.applesoft-mode .rewind,
+body.applesoft-mode .key-legend,
+body.applesoft-mode .touch-controls {
+    display: none;
+}
+
+.applesoft-hint {
+    display: none;
+    margin: 0;
+    font-size: 0.75rem;
+    color: #999;
+}
+
+body.applesoft-mode .applesoft-hint {
+    display: block;
+}
+
+.applesoft-hint kbd {
+    display: inline-block;
+    padding: 0.1rem 0.35rem;
+    border: 1px solid #444;
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: #222;
+    color: #ddd;
+    font-family: inherit;
+    font-size: 0.72rem;
 }
 
 .rewind-thumbnail {
@@ -664,10 +736,14 @@ dialog menu {
 /* Touch vs keyboard UI selection --------------------------------------
    Coarse-pointer devices with no fine pointer anywhere (phones/tablets)
    get the on-screen controls; anything with a mouse/trackpad gets the
-   keyboard legend. Placed last so it wins the cascade over the base
-   rules; the body.force-* classes (ControlModeSwitch.ts) override both. */
+   keyboard legend, and the desktop-only controls row (Applesoft break,
+   fullscreen — neither is touch-friendly: one needs a physical keyboard,
+   the other is a desktop-window concept). Placed last so it wins the
+   cascade over the base rules; the body.force-* classes
+   (ControlModeSwitch.ts) override all three the same way. */
 @media (pointer: coarse) and (not (any-pointer: fine)) {
-    .key-legend {
+    .key-legend,
+    .controls-desktop {
         display: none;
     }
 
@@ -692,7 +768,8 @@ dialog menu {
     background: rgba(108, 204, 255, 0.08);
 }
 
-body.force-touch-controls .key-legend {
+body.force-touch-controls .key-legend,
+body.force-touch-controls .controls-desktop {
     display: none;
 }
 
@@ -700,7 +777,8 @@ body.force-touch-controls .touch-controls {
     display: flex;
 }
 
-body.force-keyboard-controls .key-legend {
+body.force-keyboard-controls .key-legend,
+body.force-keyboard-controls .controls-desktop {
     display: flex;
 }
 
