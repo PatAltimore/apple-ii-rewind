@@ -14,6 +14,11 @@ import { attachSaveLoadMenu } from './ui/SaveMenu';
 import { attachTouchControls } from './ui/TouchControls';
 import { attachControlModeSwitch } from './ui/ControlModeSwitch';
 import { attachFullscreenToggle, currentFullscreenElement } from './ui/Fullscreen';
+import { AppleTextScreen } from './emulator/AppleTextScreen';
+import { LocalStorageDisk } from './disk/LocalStorageDisk';
+import { createDiskCommandHandler } from './disk/commands';
+import { compileTextToProgram, readProgramText, validateListing } from './emulator/applesoft/program';
+import type { CPU6502 } from '@whscullin/cpu6502';
 
 const DISK_URL = '/disks/TotalReplay.hdv';
 
@@ -70,6 +75,66 @@ function formatMB(bytes: number): string {
     return (bytes / (1024 * 1024)).toFixed(1);
 }
 
+/**
+ * Copy-program / Paste-program buttons for Applesoft mode. Clipboard
+ * access needs a real user gesture, which is why these are buttons and
+ * not typed commands like CATALOG/LOAD/SAVE. Copy detokenizes the program
+ * now in memory; Paste validates the clipboard text is an Applesoft
+ * listing before tokenizing it straight into memory.
+ */
+function wireDiskClipboardButtons(
+    cpu: CPU6502,
+    copyBtn: HTMLButtonElement | null,
+    pasteBtn: HTMLButtonElement | null,
+    statusEl: HTMLElement | null
+): void {
+    let statusTimer: ReturnType<typeof setTimeout> | undefined;
+    const status = (message: string): void => {
+        if (statusEl) {
+            statusEl.textContent = message;
+            clearTimeout(statusTimer);
+            statusTimer = setTimeout(() => {
+                statusEl.textContent = '';
+            }, 6000);
+        }
+    };
+
+    copyBtn?.addEventListener('click', async () => {
+        const text = readProgramText(cpu).trim();
+        if (!text) {
+            status('No program in memory to copy.');
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(text + '\n');
+            status('Program copied to the clipboard.');
+        } catch {
+            status('Clipboard write was blocked by the browser.');
+        }
+    });
+
+    pasteBtn?.addEventListener('click', async () => {
+        let text: string;
+        try {
+            text = await navigator.clipboard.readText();
+        } catch {
+            status('Clipboard read was blocked by the browser.');
+            return;
+        }
+        const check = validateListing(text);
+        if (!check.ok) {
+            status(`Not loaded — ${check.error}.`);
+            return;
+        }
+        try {
+            compileTextToProgram(cpu, text);
+            status('Program pasted into memory — type LIST or RUN.');
+        } catch {
+            status('Not loaded — could not tokenize that listing.');
+        }
+    });
+}
+
 async function main() {
     const canvas = document.querySelector<HTMLCanvasElement>('#screen')!;
     const canvasWrap = document.querySelector<HTMLElement>('#canvas-wrap')!;
@@ -77,6 +142,9 @@ async function main() {
     const menuBtn = document.querySelector<HTMLButtonElement>('#menu-btn')!;
     const applesoftBtn = document.querySelector<HTMLButtonElement>('#applesoft-btn')!;
     const fullscreenBtn = document.querySelector<HTMLButtonElement>('#fullscreen-btn')!;
+    const diskCopyBtn = document.querySelector<HTMLButtonElement>('#disk-copy-btn');
+    const diskPasteBtn = document.querySelector<HTMLButtonElement>('#disk-paste-btn');
+    const diskBasicStatus = document.querySelector<HTMLElement>('#disk-basic-status');
     const rewindSlider = document.querySelector<HTMLInputElement>('#rewind-slider')!;
     const rewind5sBtn = document.querySelector<HTMLButtonElement>('#rewind-5s-btn')!;
     const rewindThumbnail = document.querySelector<HTMLImageElement>('#rewind-thumbnail')!;
@@ -97,7 +165,7 @@ async function main() {
         () => captureThumbnail(canvas)
     );
 
-    const { apple2, smartport } = await bootEmulator(
+    const { apple2, smartport, cpu } = await bootEmulator(
         canvas,
         () => {
             if (recording) {
@@ -108,6 +176,18 @@ async function main() {
         { emptySlotStubs: BASIC_BOOT_MODE }
     );
     apple2Ref = apple2;
+
+    // Applesoft-only mode gets a host-side "disk": CATALOG/LOAD/SAVE typed
+    // at the `]` prompt, backed by localStorage (see src/disk/). The
+    // command handler is wired into the keyboard so it can catch a line
+    // the instant Return is pressed.
+    let disk1: LocalStorageDisk | undefined;
+    let onLineSubmit: ((line: string) => void) | undefined;
+    if (BASIC_BOOT_MODE) {
+        disk1 = new LocalStorageDisk();
+        const textScreen = new AppleTextScreen(cpu);
+        onLineSubmit = createDiskCommandHandler({ cpu, screen: textScreen, disks: [disk1] });
+    }
 
     // Set once at boot, not toggled at runtime — see BASIC_BOOT_MODE's
     // comment above for why there's no in-session transition anymore.
@@ -144,6 +224,7 @@ async function main() {
     attachKeyboard(apple2, canvas, {
         reserveFullscreenBackspace: !BASIC_BOOT_MODE,
         backspaceAsLeftArrow: BASIC_BOOT_MODE,
+        onLineSubmit,
     });
     canvas.addEventListener('click', () => canvas.focus());
     canvas.focus();
@@ -196,6 +277,8 @@ async function main() {
         // bootable anywhere and falls through to Applesoft on its own.
         bootOverlay.hidden = true;
         statusEl.textContent = 'Applesoft BASIC';
+        wireDiskClipboardButtons(cpu, diskCopyBtn, diskPasteBtn, diskBasicStatus);
+        void disk1?.ready;
     } else {
         try {
             const { fromCache } = await loadBlockImageFromUrl(smartport, 1, DISK_URL, (loaded, total) => {

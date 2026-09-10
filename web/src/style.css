@@ -160,6 +160,19 @@ canvas#screen {
    button styling; their visibility follows .key-legend's rules — see the
    "Touch vs keyboard UI selection" block near the end of this file. */
 
+/* Applesoft-only controls (Copy / Paste program). Hidden by default;
+   shown only in applesoft-mode by the rule at the very end of this file
+   (which also has to override the applesoft-mode rule that hides every
+   other .controls row — hence the placement). */
+.controls-basic {
+    display: none;
+}
+
+.disk-basic-status {
+    font-size: 0.78rem;
+    color: #8c8;
+}
+
 /* Applesoft boot mode (main.ts's BASIC_BOOT_MODE, ?boot=basic) hides
    every button/slider/key-legend row — see the rule near the end of this
    file for why it has to live there, not here. */
@@ -806,4 +819,13 @@ body.applesoft-mode .rewind,
 body.applesoft-mode .key-legend,
 body.applesoft-mode .touch-controls {
     display: none;
+}
+
+/* …except the Applesoft disk's own Copy/Paste row, which is *for* this
+   mode. Equal specificity to the rule just above (`body.applesoft-mode`
+   + one class), placed after it so it wins by source order — the same
+   tiebreak that whole block relies on. `.controls-basic` also carries
+   the `.controls` class, so without this it would be hidden too. */
+body.applesoft-mode .controls-basic {
+    display: flex;
 }

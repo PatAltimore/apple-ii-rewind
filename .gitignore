@@ -8,3 +8,6 @@ web/public/dist/
 web/public/disks/*.hdv
 web/public/disks/*.2mg
 web/public/disks/*.po
+# Classic Applesoft programs for ?boot=basic mode, fetched from archive.org
+# by `npm run fetch-programs` (copyrighted Apple software, not redistributed here)
+web/public/disks/programs/

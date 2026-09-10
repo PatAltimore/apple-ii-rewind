@@ -40,9 +40,20 @@
                     </button>
                     <button id="fullscreen-btn" title="Fullscreen the game view (Esc to leave)">⛶ Fullscreen</button>
                 </div>
+                <div class="controls controls-basic">
+                    <button id="disk-copy-btn" title="Copy the BASIC program now in memory to the clipboard as a text listing">
+                        ⧉ Copy program
+                    </button>
+                    <button id="disk-paste-btn" title="Load an Applesoft listing from the clipboard (it is validated first)">
+                        ⇤ Paste program
+                    </button>
+                    <span id="disk-basic-status" class="disk-basic-status" aria-live="polite"></span>
+                </div>
                 <p id="applesoft-hint" class="applesoft-hint">
-                    Applesoft BASIC, cold-booted — no disk is mounted. <a id="total-replay-link" href="/">⏏ Total Replay</a>
-                    to go back.
+                    Applesoft BASIC, cold-booted. A local disk of classic programs is mounted: type
+                    <kbd>CATALOG</kbd> to list it, <kbd>LOAD</kbd> <em>NAME</em> / <kbd>RUN</kbd> to run one,
+                    <kbd>SAVE</kbd> <em>NAME</em> to keep your changes (in this browser).
+                    <a id="total-replay-link" href="/">⏏ Total Replay</a> to go back.
                 </p>
                 <div class="rewind">
                     <label for="rewind-slider">Rewind</label>

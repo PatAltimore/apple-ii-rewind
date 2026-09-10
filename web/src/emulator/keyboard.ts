@@ -88,6 +88,19 @@ export interface KeyboardOptions {
      * behavior isn't something to risk on an assumption.
      */
     backspaceAsLeftArrow?: boolean;
+    /**
+     * Set in Applesoft's boot mode. Called with the line currently typed
+     * at the `]` prompt the instant Return is pressed, *before* the
+     * keystroke reaches the emulator, so the handler can recognise a disk
+     * command (CATALOG/LOAD/SAVE — see src/disk/commands.ts) and blank the
+     * emulator's input buffer before GETLN parses it. To track the line,
+     * keyboard.ts keeps a shadow buffer: it appends printable keys and
+     * removes on Backspace, and gives up (clears the shadow) on any
+     * editing key it doesn't model (arrows, Ctrl-anything, Tab, Esc) — a
+     * command typed with such a key in the middle simply won't be
+     * recognised and runs as normal Applesoft.
+     */
+    onLineSubmit?: (line: string) => void;
 }
 
 /**
@@ -105,7 +118,11 @@ const LEFT_ARROW_CODE = 0x08;
 export function attachKeyboard(apple2: Apple2, target: HTMLElement, options: KeyboardOptions = {}): () => void {
     const reserveFullscreenBackspace = options.reserveFullscreenBackspace ?? true;
     const backspaceAsLeftArrow = options.backspaceAsLeftArrow ?? false;
+    const onLineSubmit = options.onLineSubmit;
     let ctrl = false;
+    // Shadow of the line being typed at the `]` prompt — see
+    // KeyboardOptions.onLineSubmit. Only maintained when that hook is set.
+    let shadowLine = '';
 
     const keyDown = (event: KeyboardEvent) => {
         if (APP_HOTKEYS.has(event.key) || isFullscreenEscape(event) || isFullscreenBackspace(event, reserveFullscreenBackspace)) {
@@ -129,6 +146,23 @@ export function attachKeyboard(apple2: Apple2, target: HTMLElement, options: Key
         if (key === 'OPEN_APPLE' || key === 'CLOSED_APPLE') {
             io.buttonDown(key === 'OPEN_APPLE' ? 0 : 1, true);
             return;
+        }
+
+        if (onLineSubmit) {
+            if (key === 'RETURN') {
+                onLineSubmit(shadowLine);
+                shadowLine = '';
+            } else if (key === 'DELETE') {
+                shadowLine = shadowLine.slice(0, -1);
+            } else if (keyCode >= 0x20 && keyCode < 0x7f) {
+                shadowLine += String.fromCharCode(keyCode & 0x7f);
+            } else if (keyCode !== 0xff) {
+                // A control/navigation key that still reaches the emulator
+                // (arrows, Tab, Esc, Ctrl-letter) — we don't model its
+                // effect on the line, so stop trusting the shadow. Pure
+                // modifiers (keyCode 0xff, not forwarded) are left alone.
+                shadowLine = '';
+            }
         }
 
         if (keyCode !== 0xff) {
