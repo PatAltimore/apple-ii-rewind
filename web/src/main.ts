@@ -135,6 +135,43 @@ function wireDiskClipboardButtons(
     });
 }
 
+/**
+ * "🕹 On-screen controls" toggle for Applesoft mode. The touch panel
+ * (joystick → paddles, two fire buttons) is always wired by
+ * attachTouchControls; this just un-hides it (via a `applesoft-touch`
+ * body class) so paddle programs like Little Brick Out are playable.
+ * Defaults on for coarse-pointer devices, and the choice is remembered.
+ */
+function wireApplesoftControlsToggle(btn: HTMLButtonElement | null): void {
+    if (!btn) {
+        return;
+    }
+    const STORAGE_KEY = 'apple-ii-rewind:applesoft-touch';
+    const apply = (on: boolean): void => {
+        document.body.classList.toggle('applesoft-touch', on);
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-pressed', String(on));
+        try {
+            window.localStorage.setItem(STORAGE_KEY, on ? 'on' : 'off');
+        } catch {
+            /* best-effort persistence */
+        }
+    };
+
+    let initial = window.matchMedia('(pointer: coarse)').matches;
+    try {
+        const stored = window.localStorage.getItem(STORAGE_KEY);
+        if (stored !== null) {
+            initial = stored === 'on';
+        }
+    } catch {
+        /* storage unavailable */
+    }
+    apply(initial);
+
+    btn.addEventListener('click', () => apply(!document.body.classList.contains('applesoft-touch')));
+}
+
 async function main() {
     const canvas = document.querySelector<HTMLCanvasElement>('#screen')!;
     const canvasWrap = document.querySelector<HTMLElement>('#canvas-wrap')!;
@@ -145,6 +182,7 @@ async function main() {
     const diskCopyBtn = document.querySelector<HTMLButtonElement>('#disk-copy-btn');
     const diskPasteBtn = document.querySelector<HTMLButtonElement>('#disk-paste-btn');
     const diskBasicStatus = document.querySelector<HTMLElement>('#disk-basic-status');
+    const applesoftControlsBtn = document.querySelector<HTMLButtonElement>('#applesoft-controls-btn');
     const rewindSlider = document.querySelector<HTMLInputElement>('#rewind-slider')!;
     const rewind5sBtn = document.querySelector<HTMLButtonElement>('#rewind-5s-btn')!;
     const rewindThumbnail = document.querySelector<HTMLImageElement>('#rewind-thumbnail')!;
@@ -278,6 +316,7 @@ async function main() {
         bootOverlay.hidden = true;
         statusEl.textContent = 'Applesoft BASIC';
         wireDiskClipboardButtons(cpu, diskCopyBtn, diskPasteBtn, diskBasicStatus);
+        wireApplesoftControlsToggle(applesoftControlsBtn);
         void disk1?.ready;
     } else {
         try {

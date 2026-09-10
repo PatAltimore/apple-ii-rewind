@@ -37,7 +37,9 @@ const SOURCES = [
         label: 'Apple DOS 3.3 System Master (1980)',
         url: 'https://archive.org/download/DOS_3.3_System_Master_16_Sector_Version_Apple_1980/DOS_3.3_System_Master_16_Sector_Version_Apple_1980.dsk',
         sha256: 'b2ac0af26ae0e6d17774bd50bbf633ac2b664c2ed1c03cdcd9783ca57ac6f5da',
-        pick: ["BRIAN'S THEME", 'COLOR DEMOSOFT', 'LITTLE BRICK OUT', 'RANDOM'],
+        // APPLEVISION / ANIMALS / COLOR DEMO on this disk are Integer BASIC
+        // (type I), which the Applesoft-only ?boot=basic disk can't load.
+        pick: ["BRIAN'S THEME", 'COLOR DEMOSOFT', 'LITTLE BRICK OUT'],
     },
     {
         id: 'applesoft-sampler',
@@ -65,6 +67,9 @@ const VTOC_TRACK = 17;
 const MAX_PROGRAMS = 30;
 
 const FILE_TYPE_APPLESOFT = 0x02;
+
+// DOS 3.3 file-type codes (low 7 bits of the catalog type byte).
+const FILE_TYPE_NAMES = { 0x00: 'T', 0x01: 'I', 0x02: 'A', 0x04: 'B', 0x08: 'S', 0x10: 'R', 0x20: 'a', 0x40: 'b' };
 
 function sha256(buffer) {
     return createHash('sha256').update(buffer).digest('hex');
@@ -277,6 +282,27 @@ async function main() {
     };
     writeFileSync(path.join(OUT_DIR, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
     console.log(`\nWrote ${programs.length} programs + manifest.json (version ${manifest.version}) to ${path.relative(process.cwd(), OUT_DIR)}`);
+}
+
+// `--list [url ...]` just prints the full DOS 3.3 catalog (every file
+// type) for the given images, or for every SOURCE if no URL is given.
+// Handy for finding a program and its type before adding it to `pick`.
+if (process.argv.includes('--list')) {
+    const urls = process.argv.slice(process.argv.indexOf('--list') + 1).filter((a) => a.startsWith('http'));
+    const targets = urls.length ? urls.map((url) => ({ label: url, url })) : SOURCES;
+    for (const target of targets) {
+        console.log(`\n${target.label}`);
+        try {
+            const image = await download(target.url);
+            for (const entry of readCatalog(image)) {
+                const t = FILE_TYPE_NAMES[entry.type] ?? `?${entry.type}`;
+                console.log(`  ${entry.locked ? '*' : ' '}${t}  ${entry.name}`);
+            }
+        } catch (err) {
+            console.warn(`  ${err.message}`);
+        }
+    }
+    process.exit(0);
 }
 
 // Skip the network in CI-less local dev if the manifest is already there

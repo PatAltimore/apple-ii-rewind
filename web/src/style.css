@@ -829,3 +829,24 @@ body.applesoft-mode .touch-controls {
 body.applesoft-mode .controls-basic {
     display: flex;
 }
+
+/* Opt-in on-screen joystick/buttons for paddle programs (Little Brick
+   Out) — the "🕹 On-screen controls" toggle in .controls-basic adds
+   `applesoft-touch` to <body>. `body.applesoft-mode.applesoft-touch`
+   (three classes) outranks the hide rule above and every force-* rule,
+   so it wins in both directions regardless of source order. */
+body.applesoft-mode.applesoft-touch .touch-controls {
+    display: flex;
+}
+
+/* Applesoft mode has its own toggle for the touch panel, so the panel's
+   built-in "Switch to keyboard/touch controls" link would only confuse. */
+body.applesoft-mode .touch-controls .control-mode-switch {
+    display: none;
+}
+
+.applesoft-toggle.active {
+    background: #26402a;
+    border-color: #5c5;
+    color: #d8ffd8;
+}

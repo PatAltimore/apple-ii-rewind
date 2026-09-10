@@ -47,13 +47,23 @@
                     <button id="disk-paste-btn" title="Load an Applesoft listing from the clipboard (it is validated first)">
                         ⇤ Paste program
                     </button>
+                    <button
+                        id="applesoft-controls-btn"
+                        class="applesoft-toggle"
+                        type="button"
+                        aria-pressed="false"
+                        title="Show the on-screen joystick and buttons — some programs (Little Brick Out) read the paddles"
+                    >
+                        🕹 On-screen controls
+                    </button>
                     <span id="disk-basic-status" class="disk-basic-status" aria-live="polite"></span>
                 </div>
                 <p id="applesoft-hint" class="applesoft-hint">
                     Applesoft BASIC, cold-booted. A local disk of classic programs is mounted: type
                     <kbd>CATALOG</kbd> to list it, <kbd>LOAD</kbd> <em>NAME</em> / <kbd>RUN</kbd> to run one,
-                    <kbd>SAVE</kbd> <em>NAME</em> to keep your changes (in this browser).
-                    <a id="total-replay-link" href="/">⏏ Total Replay</a> to go back.
+                    <kbd>SAVE</kbd> <em>NAME</em> to keep your changes (in this browser). Paddle games like
+                    Little Brick Out need <strong>🕹 On-screen controls</strong> (turn off “Self-centering” so the
+                    paddle holds its place). <a id="total-replay-link" href="/">⏏ Total Replay</a> to go back.
                 </p>
                 <div class="rewind">
                     <label for="rewind-slider">Rewind</label>

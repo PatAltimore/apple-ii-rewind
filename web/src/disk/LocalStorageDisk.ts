@@ -37,6 +37,9 @@ interface Manifest {
 interface IndexEntry {
     name: string;
     type: string;
+    /** True if this file came from the seed and hasn't been overwritten by
+     *  a user SAVE — such entries are pruned when a new manifest drops them. */
+    seeded?: boolean;
 }
 
 export function normalizeDiskName(raw: string): string {
@@ -84,7 +87,7 @@ export class LocalStorageDisk implements Disk {
             if (Array.isArray(parsed)) {
                 this.index = parsed
                     .filter((e): e is IndexEntry => !!e && typeof (e as IndexEntry).name === 'string')
-                    .map((e) => ({ name: e.name, type: e.type || 'A' }));
+                    .map((e) => ({ name: e.name, type: e.type || 'A', seeded: e.seeded === true }));
             }
         } catch {
             this.index = [];
@@ -118,6 +121,13 @@ export class LocalStorageDisk implements Disk {
             return;
         }
 
+        // A new build's set: drop programs that were only here because a
+        // previous seed put them (never a user's SAVE), then (re)seed.
+        const manifestNames = new Set(manifest.programs.map((p) => normalizeDiskName(p.name)));
+        for (const stale of this.index.filter((e) => e.seeded && !manifestNames.has(e.name))) {
+            this.delete(stale.name);
+        }
+
         for (const entry of manifest.programs) {
             try {
                 const fileResponse = await fetch(PROGRAMS_BASE + entry.file);
@@ -126,7 +136,7 @@ export class LocalStorageDisk implements Disk {
                 }
                 const bytes = new Uint8Array(await fileResponse.arrayBuffer());
                 const name = normalizeDiskName(entry.name);
-                this.putFile(name, entry.type || 'A', bytes);
+                this.putFile(name, entry.type || 'A', bytes, true);
             } catch {
                 /* skip a program that failed to download */
             }
@@ -139,7 +149,7 @@ export class LocalStorageDisk implements Disk {
         }
     }
 
-    private putFile(name: string, type: string, image: Uint8Array): void {
+    private putFile(name: string, type: string, image: Uint8Array, seeded = false): void {
         try {
             window.localStorage.setItem(FILE_PREFIX + name, bytesToBase64(image));
         } catch (err) {
@@ -148,8 +158,11 @@ export class LocalStorageDisk implements Disk {
         const existing = this.index.find((e) => e.name === name);
         if (existing) {
             existing.type = type;
+            // A user SAVE over a seeded file makes it the user's from now on;
+            // a reseed of an untouched file leaves it seeded.
+            existing.seeded = existing.seeded === true && seeded;
         } else {
-            this.index.push({ name, type });
+            this.index.push({ name, type, seeded });
         }
         this.saveIndex();
     }
