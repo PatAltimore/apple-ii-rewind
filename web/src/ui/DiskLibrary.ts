@@ -1,8 +1,7 @@
 /**
- * "Load another disk" panel (Total Replay mode only). A dropdown whose
- * first entry is the built-in Total Replay image and the rest are curated
- * Internet Archive titles, plus a free-text URL box and a "⏏ Total
- * Replay" button.
+ * "Load another disk" panel (Total Replay mode only): a dropdown of
+ * curated Internet Archive titles, a free-text URL box, and a "⏏ Total
+ * Replay" button that goes back to the built-in image.
  *
  * Switching disks **reloads the page** with a `?disk=<url>` parameter
  * (Total Replay = no parameter) rather than swapping the image in a
@@ -47,7 +46,7 @@ function fileNameOf(url: string): string {
     }
 }
 
-/** Reload onto `url`, or onto Total Replay when `url` is null/empty. */
+/** Reload onto `url`, or back to Total Replay when `url` is null. */
 function goToDisk(url: string | null): void {
     const target = new URL(location.pathname, location.href);
     if (url) {
@@ -79,15 +78,17 @@ export async function attachDiskLibrary(options: DiskLibraryOptions): Promise<vo
         /* the curated list is optional; the URL box still works */
     }
 
-    // Reflect what this page actually booted.
-    if (currentDiskUrl && !known.has(currentDiskUrl)) {
+    // Reflect what this page actually booted: a known title selects its
+    // row, a pasted URL gets a one-off "Custom disk" row, Total Replay
+    // leaves the disabled "Load another disk…" placeholder showing.
+    if (currentDiskUrl && known.has(currentDiskUrl)) {
+        select.value = currentDiskUrl;
+    } else if (currentDiskUrl) {
         const custom = document.createElement('option');
         custom.value = CUSTOM_OPTION_VALUE;
         custom.textContent = `Custom disk — ${fileNameOf(currentDiskUrl)}`;
         select.insertBefore(custom, select.options[1] ?? null);
         select.value = CUSTOM_OPTION_VALUE;
-    } else {
-        select.value = currentDiskUrl ?? '';
     }
 
     const submit = (url: string): void => {
@@ -102,8 +103,8 @@ export async function attachDiskLibrary(options: DiskLibraryOptions): Promise<vo
     };
 
     loadBtn.addEventListener('click', () => {
-        const url = urlInput.value.trim();
-        submit(url || (select.value && select.value !== CUSTOM_OPTION_VALUE ? select.value : ''));
+        const picked = select.value && select.value !== CUSTOM_OPTION_VALUE ? select.value : '';
+        submit(urlInput.value.trim() || picked);
     });
     resetBtn.addEventListener('click', () => {
         status.textContent = 'Loading…';
@@ -116,10 +117,8 @@ export async function attachDiskLibrary(options: DiskLibraryOptions): Promise<vo
         }
     });
     select.addEventListener('change', () => {
-        if (select.value === CUSTOM_OPTION_VALUE) {
-            return;
+        if (select.value && select.value !== CUSTOM_OPTION_VALUE) {
+            submit(select.value);
         }
-        // Empty value === the first option === Total Replay.
-        select.value ? submit(select.value) : goToDisk(null);
     });
 }

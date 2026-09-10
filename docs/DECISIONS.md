@@ -131,9 +131,14 @@ II and boots it. Block images go in slot 7, which the scan hits first.
 A bad `?disk=` (unreachable, unrecognised format) is caught: the page falls back to mounting
 Total Replay and shows the error next to the disk name, so the machine is never left dead.
 
+The dropdown lists only other disks — Total Replay is not an entry in it (the **⏏ Total
+Replay** button is how you go back). A pasted URL that isn't one of the curated titles shows
+as a one-off "Custom disk" row so the box reflects what booted.
+
 Verified live: the built-in **Total Replay** boots through the unified path; **The Oregon
 Trail** from the dropdown reloads to `?disk=…` and boots from slot 6; a pasted raw
 `archive.org/download/…` link to the **DOS 3.3 System Master** rewrites and boots to DOS; a
-pasted `.hdv` boots from SmartPort; **⏏ Total Replay** and the dropdown's first entry both
-return cleanly from any of them; a `/details/` URL shows the error; `?boot=basic` still
-cold-boots Applesoft; snapshot card state stays 29 bytes with a floppy mounted.
+pasted `.hdv` boots from SmartPort; **⏏ Total Replay** returns cleanly from any of them,
+including floppy → floppy → Total Replay (the chain the old runtime-reset approach hung on);
+a `/details/` URL shows the error; `?boot=basic` still cold-boots Applesoft; snapshot card
+state stays 29 bytes with a floppy mounted.

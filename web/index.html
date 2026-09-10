@@ -44,20 +44,32 @@
                     <label class="disk-library-label">
                         <span>Disk</span>
                         <select id="disk-library-select" title="Load another Apple II disk from the Internet Archive">
-                            <option value="">Total Replay</option>
+                            <option value="" disabled selected>Load another disk…</option>
                         </select>
                     </label>
-                    <input
-                        id="disk-url-input"
-                        type="url"
-                        class="disk-url-input"
-                        autocomplete="off"
-                        spellcheck="false"
-                        placeholder="…or paste an archive.org disk URL (.dsk .do .po .woz .hdv .2mg)"
-                    />
-                    <button id="disk-url-load-btn" type="button" title="Fetch and boot that disk in place of Total Replay">
-                        Load
-                    </button>
+                    <span class="disk-url-group">
+                        <input
+                            id="disk-url-input"
+                            type="url"
+                            class="disk-url-input"
+                            autocomplete="off"
+                            spellcheck="false"
+                            placeholder="…or paste an archive.org disk URL (.dsk .do .po .woz .hdv .2mg)"
+                        />
+                        <button id="disk-url-load-btn" type="button" title="Fetch and boot that disk in place of Total Replay">
+                            Load
+                        </button>
+                        <a
+                            id="disk-find-btn"
+                            class="disk-find-btn"
+                            href="https://archive.org/details/apple_ii_library_4am"
+                            target="_blank"
+                            rel="noopener"
+                            title="Browse Apple II disk images on the Internet Archive (opens a new tab)"
+                        >
+                            Find ↗
+                        </a>
+                    </span>
                     <button id="disk-reset-btn" type="button" title="Re-mount the built-in Total Replay image">
                         ⏏ Total Replay
                     </button>
