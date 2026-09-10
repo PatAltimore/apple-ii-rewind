@@ -173,6 +173,45 @@ canvas#screen {
     color: #8c8;
 }
 
+/* "Load another disk" row (Total Replay mode). Hidden in applesoft mode
+   by the .controls rule near the end of this file. */
+.disk-library-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.disk-library-label > span {
+    color: #aaa;
+}
+
+#disk-library-select {
+    max-width: 16rem;
+    padding: 0.3rem 0.4rem;
+    border-radius: 5px;
+    border: 1px solid #444;
+    background: #1e1e1e;
+    color: #eee;
+    font: inherit;
+    font-size: 0.82rem;
+}
+
+.disk-url-input {
+    flex: 1 1 14rem;
+    min-width: 10rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 5px;
+    border: 1px solid #444;
+    background: #1e1e1e;
+    color: #eee;
+    font: inherit;
+    font-size: 0.82rem;
+}
+
+.disk-url-input::placeholder {
+    color: #666;
+}
+
 /* Applesoft boot mode (main.ts's BASIC_BOOT_MODE, ?boot=basic) hides
    every button/slider/key-legend row — see the rule near the end of this
    file for why it has to live there, not here. */

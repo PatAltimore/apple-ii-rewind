@@ -18,7 +18,7 @@
                     <canvas id="screen" width="592" height="416" tabindex="0"></canvas>
                     <img id="rewind-thumbnail" class="rewind-thumbnail" hidden alt="Rewind preview" />
                     <div id="boot-overlay" class="boot-overlay">
-                        <div class="boot-overlay-title">Loading Total Replay…</div>
+                        <div id="boot-overlay-title" class="boot-overlay-title">Loading Total Replay…</div>
                         <progress id="boot-progress" max="100" value="0"></progress>
                         <div id="boot-status" class="boot-overlay-status">Checking for a locally cached copy…</div>
                     </div>
@@ -39,6 +39,29 @@
                         ] Applesoft
                     </button>
                     <button id="fullscreen-btn" title="Fullscreen the game view (Esc to leave)">⛶ Fullscreen</button>
+                </div>
+                <div class="controls controls-disk">
+                    <label class="disk-library-label">
+                        <span>Disk</span>
+                        <select id="disk-library-select" title="Load another Apple II disk from the Internet Archive">
+                            <option value="">Total Replay</option>
+                        </select>
+                    </label>
+                    <input
+                        id="disk-url-input"
+                        type="url"
+                        class="disk-url-input"
+                        autocomplete="off"
+                        spellcheck="false"
+                        placeholder="…or paste an archive.org disk URL (.dsk .do .po .woz .hdv .2mg)"
+                    />
+                    <button id="disk-url-load-btn" type="button" title="Fetch and boot that disk in place of Total Replay">
+                        Load
+                    </button>
+                    <button id="disk-reset-btn" type="button" title="Re-mount the built-in Total Replay image">
+                        ⏏ Total Replay
+                    </button>
+                    <span id="disk-library-status" class="disk-basic-status" aria-live="polite"></span>
                 </div>
                 <div class="controls controls-basic">
                     <button id="disk-copy-btn" title="Copy the BASIC program now in memory to the clipboard as a text listing">

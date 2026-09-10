@@ -1,0 +1,25 @@
+{
+  "note": "Curated pointers to Apple II disk images on the Internet Archive. Nothing is bundled here — each is fetched on demand through https://cors.archive.org. Add your own: any archive.org 'download' link to a .dsk/.do/.po/.woz/.hdv/.2mg file works, as does any other CORS-enabled URL.",
+  "images": [
+    {
+      "title": "Lemonade Stand",
+      "note": "Apple, 1979 — the classic business sim",
+      "url": "https://archive.org/download/Lemonade_Stand_1979_Apple/Lemonade_Stand_1979_Apple.do"
+    },
+    {
+      "title": "DOS 3.3 System Master",
+      "note": "Apple, 1980 — boots to the ] prompt with DOS",
+      "url": "https://archive.org/download/DOS_3.3_System_Master_16_Sector_Version_Apple_1980/DOS_3.3_System_Master_16_Sector_Version_Apple_1980.dsk"
+    },
+    {
+      "title": "The Oregon Trail",
+      "note": "MECC, 1985",
+      "url": "https://archive.org/download/MECC_A157_v14_4amCrack/00playable.dsk"
+    },
+    {
+      "title": "Total Replay II: Instant Replay",
+      "note": "4am — 32 MB hard-drive image, slower first load",
+      "url": "https://archive.org/download/TotalReplay2/Total Replay II v1.0-alpha.4.hdv"
+    }
+  ]
+}

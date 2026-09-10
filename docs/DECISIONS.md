@@ -77,3 +77,63 @@ Only Applesoft (DOS type `A`) files are taken. Several fondly-remembered System 
 **On-screen controls are opt-in in Applesoft mode.** Some of the seeded programs read the paddles/buttons (Little Brick Out is a paddle game). `attachTouchControls` is already wired in this mode — only the CSS hid the panel — so a "🕹 On-screen controls" toggle in `.controls-basic` just adds an `applesoft-touch` body class that un-hides `.touch-controls` (`body.applesoft-mode.applesoft-touch .touch-controls`, three classes, outranks the hide rule and the `force-*` rules in both directions). Defaults on for coarse-pointer devices, off for mouse, and the choice is remembered (`apple-ii-rewind:applesoft-touch`). The panel's own "Switch to keyboard/touch controls" link is hidden here — this toggle is the control. Verified live: the on-screen joystick drives `_paddle[0]`/`[1]` `0↔1` (0.5 at rest, recentres on release), and Little Brick Out loads and runs.
 
 **Clipboard is buttons, not typed commands.** `navigator.clipboard.readText()` needs a genuine user gesture; a command recognised after an emulated Return isn't one. `⧉ Copy program` / `⇤ Paste program` are real `<button>`s; Paste runs `validateListing()` (every non-blank line starts with an in-range line number, and the whole thing tokenizes) before touching memory. In the automation harness `readText` is denied outright even from a click — the app catches that and says so; the happy path was verified by stubbing `readText`.
+
+## 2026-09-10 — Load other disks from the Internet Archive (curated list + paste-a-URL)
+
+Total Replay mode grew a **Disk** row: a `<select>` of curated archive.org titles
+(`web/public/disks/library.json` — pointers only, committed, editable), a URL box for any
+other disk image, and a **⏏ Total Replay** button.
+
+**Switching disks reloads the page** with `?disk=<url>` (Total Replay = no parameter);
+`main.ts` mounts that image *before* the initial `apple2.reset()`, so it boots through the
+exact same path as a normal load. The first attempt did it at runtime — mount the new
+image, then a `coldReset()` (zero `$3F2`/`$3F3`/`$3F4` to invalidate the power-up byte so
+the ROM re-runs its slot scan instead of warm-jumping the old `$3F2` vector). It worked
+once, then reliably dropped into the monitor / hung the CPU spinning in slot 2's ROM space:
+a mid-session cold reset leaves MMU and soft-switch state from the previous disk (INTCXROM,
+the `$C800` expansion-ROM latch, language-card banking) that derails the slot scan — the
+same class of failure that made `?boot=basic` a real reload rather than a jump (2026-09-08
+entry), and the same slot-2 hang that `EmptySlotStub` exists for. A full navigation is the
+only reliably clean cold boot, and it makes disk links shareable for free. `coldReset()` was
+removed; `loadImageFromUrl()` no longer resets — the caller does.
+
+**CORS: the archive.org `/download/` URL is not directly fetchable.** Those responses carry
+no `Access-Control-Allow-Origin`, so a browser can't read them cross-origin. The Internet
+Archive runs `https://cors.archive.org/cors/<item>/<file>`, which reflects the Origin and
+honours `Range`. `toFetchableUrl()` (`src/emulator/imageFormat.ts`) rewrites `/download/…`,
+datanode `…/items/<item>/<file>`, and already-proxied links to that form; a `/details/…`
+page URL is rejected with a "use Show all files" message; non-archive.org URLs pass through
+untouched for a user's own CORS-enabled host.
+
+**Two cards, picked by sniffing the bytes.** The build only had the SmartPort hard-drive
+card (slot 7). 5.25″ floppies — the bulk of what's on archive.org — need a Disk II card, so
+one is now wired into **slot 6** in non-`?boot=basic` mode. `sniffImage()` decides by
+extension, then by size for the ambiguous ones: `.hdv` / big `.2mg` / big `.po`
+(> 256 KB, 512-multiple) → SmartPort; `.dsk` `.do` `.po`@140K `.d13` `.nib` `.woz` → Disk
+II. `.woz`/`.2mg` are recognised by magic too. Block images `mount()` into SmartPort
+drive 1; floppies `setBinary()` into Disk II drive 1 after `unmount()`ing SmartPort so the
+boot scan lands on slot 6.
+
+**Disk II without the format Web Worker.** apple2js's `DiskII` normally offloads image
+decoding to `dist/format_worker.bundle.js`, which this Vite build doesn't produce.
+`createFloppyCard()` constructs the card with `window.Worker` hidden, so `initWorker()`
+early-returns and `setBinary()` takes its synchronous `createDisk()` fallback — fine for
+140 K. The card is a `DiskII` subclass whose `getState()`/`setState()` are stubbed
+(`{ excludedFromSnapshot: true }`, 29 bytes) exactly like `SyncSmartPort`, keeping a mounted
+floppy out of the ~170 KB rewind/save snapshots. Not wired in `?boot=basic` (slots 1-6 are
+`EmptySlotStub` there; an empty Disk II in slot 6 would hang that mode's fall-through boot).
+
+**No explicit `PR#6`.** With a floppy image, `?disk=` mounts it in Disk II drive 1 and
+leaves SmartPort slot 7 empty. The SmartPort boot ROM does `JMP $FABA` ("scan the next
+lower slot") when its drive 1 is empty, so the //e's own boot scan reaches the slot 6 Disk
+II and boots it. Block images go in slot 7, which the scan hits first.
+
+A bad `?disk=` (unreachable, unrecognised format) is caught: the page falls back to mounting
+Total Replay and shows the error next to the disk name, so the machine is never left dead.
+
+Verified live: the built-in **Total Replay** boots through the unified path; **The Oregon
+Trail** from the dropdown reloads to `?disk=…` and boots from slot 6; a pasted raw
+`archive.org/download/…` link to the **DOS 3.3 System Master** rewrites and boots to DOS; a
+pasted `.hdv` boots from SmartPort; **⏏ Total Replay** and the dropdown's first entry both
+return cleanly from any of them; a `/details/` URL shows the error; `?boot=basic` still
+cold-boots Applesoft; snapshot card state stays 29 bytes with a floppy mounted.

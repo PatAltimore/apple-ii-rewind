@@ -3,15 +3,68 @@ import { Audio } from 'js/ui/audio';
 import { CPU6502 } from '@whscullin/cpu6502';
 import { BLOCK_FORMATS } from 'js/formats/types';
 import { includes, Card, byte } from 'js/types';
+import DiskII from 'js/cards/disk2';
+import type { Callbacks } from 'js/cards/disk2';
+import type Apple2IO from 'js/apple2io';
 import SyncSmartPort from './SyncSmartPort';
 import { getCachedDisk, putCachedDisk } from './DiskCache';
+import { isBlockFormat, isFloppyFormat, parseImageUrl, sniffImage, toFetchableUrl } from './imageFormat';
 
 export interface EmulatorHandles {
     apple2: Apple2;
     smartport: SyncSmartPort;
+    /**
+     * Disk II controller in slot 6 for user-loaded 5.25" images. Absent
+     * in `?boot=basic` mode (an empty Disk II in slot 6 would hang the
+     * ROM's boot scan there, where slots 1-6 are otherwise stubbed).
+     */
+    floppy?: FloppyCard;
     cpu: CPU6502;
     audio: Audio;
 }
+
+/**
+ * apple2js's Disk II card, minus its snapshot footprint. Its `getState()`
+ * deep-copies every nibblised track (~230KB), and rewind/save snapshots
+ * here are deliberately ~170KB (see SyncSmartPort for the same choice on
+ * the hard drive). Reporting an empty state keeps a mounted floppy out of
+ * snapshots; rewinding therefore doesn't un-write the disk, which — as
+ * with the hard drive — is the behaviour you'd want anyway.
+ */
+class FloppyCard extends DiskII {
+    override getState() {
+        return { excludedFromSnapshot: true } as unknown as ReturnType<DiskII['getState']>;
+    }
+    override setState() {
+        /* intentionally not restored — see the class comment */
+    }
+}
+
+const noopDriveCallbacks: Callbacks = {
+    driveLight: () => {},
+    dirty: () => {},
+    label: () => {},
+};
+
+/**
+ * Builds the slot-6 Disk II card. apple2js's `DiskII` spins up a format
+ * Web Worker from a hardcoded `dist/format_worker.bundle.js` that this
+ * Vite build doesn't produce; with `window.Worker` hidden for the
+ * duration of the constructor its `initWorker()` early-returns, and
+ * `setBinary()` then decodes images synchronously on the main thread via
+ * `createDisk()` — fine for 140K floppies.
+ */
+function createFloppyCard(io: Apple2IO): FloppyCard {
+    const realWorker = (window as { Worker?: unknown }).Worker;
+    try {
+        (window as { Worker?: unknown }).Worker = undefined;
+        return new FloppyCard(io, noopDriveCallbacks);
+    } finally {
+        (window as { Worker?: unknown }).Worker = realWorker;
+    }
+}
+
+export type { FloppyCard };
 
 /**
  * A slot with nothing plugged into it, standing in for slots 1-6 (Total
@@ -103,10 +156,17 @@ export async function bootEmulator(
     const smartport = new SyncSmartPort(cpu);
     io.setSlot(7, smartport);
 
+    let floppy: FloppyCard | undefined;
     if (options.emptySlotStubs) {
         for (const slot of [1, 2, 3, 4, 5, 6] as const) {
             io.setSlot(slot, new EmptySlotStub());
         }
+    } else {
+        // A Disk II card in slot 6 so user-loaded 5.25" images can boot.
+        // Empty until one is loaded; the ROM's boot scan falls through it
+        // to slot 7 (or, with slot 7 also empty, past it) with no disk.
+        floppy = createFloppyCard(io);
+        io.setSlot(6, floppy);
     }
 
     // apple2js's Audio class loads its AudioWorklet from the hardcoded
@@ -115,7 +175,7 @@ export async function bootEmulator(
     const audio = new Audio(io);
     await audio.ready;
 
-    return { apple2, smartport, cpu, audio };
+    return { apple2, smartport, floppy, cpu, audio };
 }
 
 /**
@@ -216,8 +276,66 @@ async function readWithProgress(response: Response, onProgress?: ProgressCallbac
     return result.buffer;
 }
 
-function parseImageUrl(url: string): { name: string; ext: string } {
-    const name = url.split('/').pop() || url;
-    const ext = name.split('.').pop()?.toLowerCase() || '';
-    return { name, ext };
+export interface LoadImageResult {
+    /** Short human summary of what was mounted, e.g. "140K 5.25″ disk". */
+    description: string;
+    /** Which card it went into. */
+    kind: 'block' | 'floppy';
+    fromCache: boolean;
+}
+
+/**
+ * Fetches an arbitrary Apple II disk image and mounts it in drive 1 —
+ * block images (.hdv/.2mg/big .po) in the SmartPort card, 5.25" images in
+ * the Disk II card (with SmartPort drive 1 emptied so the ROM's boot scan
+ * falls through to slot 6). `rawUrl` is whatever the user pasted or a
+ * curated entry; archive.org links are rewritten to the CORS proxy.
+ *
+ * Does **not** reset — call this before the machine's initial
+ * `apple2.reset()` so the first boot targets the mounted disk. Runtime
+ * disk switching is done by reloading the page with a `?disk=` parameter
+ * (see main.ts) rather than resetting a running machine: a mid-session
+ * cold reset leaves MMU/soft-switch state (INTCXROM, expansion-ROM latch,
+ * language-card banking) from the previous disk that can hang the slot
+ * scan — the same reason `?boot=basic` is a real reload, not a jump.
+ */
+export async function loadImageFromUrl(
+    handles: Pick<EmulatorHandles, 'apple2' | 'smartport' | 'floppy'>,
+    rawUrl: string,
+    onProgress?: ProgressCallback
+): Promise<LoadImageResult> {
+    const url = toFetchableUrl(rawUrl);
+
+    const cached = await getCachedDisk(url);
+    let rawData: ArrayBuffer;
+    if (cached) {
+        rawData = cached;
+        onProgress?.(cached.byteLength, cached.byteLength);
+    } else {
+        rawData = await fetchAndCache(url, onProgress);
+    }
+
+    const { name } = parseImageUrl(url);
+    const sniffed = sniffImage(name, rawData);
+
+    if (sniffed.kind === 'block') {
+        // The floppy drive, if one is present, is left as-is: the ROM's
+        // boot scan reaches slot 7 (SmartPort) before slot 6, so a stale
+        // floppy there never wins.
+        if (!isBlockFormat(sniffed.format)) {
+            throw new Error(`Not a block image format: "${sniffed.format}"`);
+        }
+        handles.smartport.mount(1, name, sniffed.format, rawData);
+    } else {
+        if (!handles.floppy) {
+            throw new Error('5.25″ disks can’t be loaded in this mode.');
+        }
+        if (!isFloppyFormat(sniffed.format)) {
+            throw new Error(`Not a 5.25″ image format: "${sniffed.format}"`);
+        }
+        handles.smartport.unmount(1);
+        await handles.floppy.setBinary(1, name, sniffed.format, rawData);
+    }
+
+    return { description: sniffed.description, kind: sniffed.kind, fromCache: cached !== undefined };
 }

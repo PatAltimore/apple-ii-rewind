@@ -4,7 +4,7 @@
  * scrubber, save/load states, on-screen touch controls, keyboard.
  */
 import { Apple2 } from 'js/apple2';
-import { bootEmulator, hardReset, loadBlockImageFromUrl } from './emulator/EmulatorController';
+import { bootEmulator, hardReset, loadImageFromUrl } from './emulator/EmulatorController';
 import { attachKeyboard } from './emulator/keyboard';
 import { RewindBuffer, RewindRecorder } from './emulator/snapshot/RewindBuffer';
 import { captureSnapshot } from './emulator/snapshot/SnapshotSerializer';
@@ -14,6 +14,7 @@ import { attachSaveLoadMenu } from './ui/SaveMenu';
 import { attachTouchControls } from './ui/TouchControls';
 import { attachControlModeSwitch } from './ui/ControlModeSwitch';
 import { attachFullscreenToggle, currentFullscreenElement } from './ui/Fullscreen';
+import { attachDiskLibrary } from './ui/DiskLibrary';
 import { AppleTextScreen } from './emulator/AppleTextScreen';
 import { LocalStorageDisk } from './disk/LocalStorageDisk';
 import { createDiskCommandHandler } from './disk/commands';
@@ -43,6 +44,15 @@ const DISK_URL = '/disks/TotalReplay.hdv';
  * the "Total Replay" link `applesoft-hint` shows in this mode.
  */
 const BASIC_BOOT_MODE = new URLSearchParams(location.search).get('boot') === 'basic';
+
+/**
+ * `?disk=<url>` boots that image instead of Total Replay — a curated
+ * archive.org title or a pasted URL, chosen from the "Load another disk"
+ * panel. Switching disks reloads the page with this parameter rather than
+ * swapping the image in a running machine, so every boot goes through the
+ * one proven cold-boot path (see EmulatorController's loadImageFromUrl).
+ */
+const DISK_PARAM = BASIC_BOOT_MODE ? null : new URLSearchParams(location.search).get('disk');
 
 // A snapshot excludes the hard drive (see EmulatorController.ts) and so
 // measures ~170KB: two 48K RAM banks, MMU/language-card banks, CPU and
@@ -187,8 +197,14 @@ async function main() {
     const rewind5sBtn = document.querySelector<HTMLButtonElement>('#rewind-5s-btn')!;
     const rewindThumbnail = document.querySelector<HTMLImageElement>('#rewind-thumbnail')!;
     const bootOverlay = document.querySelector<HTMLElement>('#boot-overlay')!;
+    const bootOverlayTitle = document.querySelector<HTMLElement>('#boot-overlay-title')!;
     const bootProgress = document.querySelector<HTMLProgressElement>('#boot-progress')!;
     const bootStatus = document.querySelector<HTMLElement>('#boot-status')!;
+    const diskLibrarySelect = document.querySelector<HTMLSelectElement>('#disk-library-select');
+    const diskUrlInput = document.querySelector<HTMLInputElement>('#disk-url-input');
+    const diskUrlLoadBtn = document.querySelector<HTMLButtonElement>('#disk-url-load-btn');
+    const diskResetBtn = document.querySelector<HTMLButtonElement>('#disk-reset-btn');
+    const diskLibraryStatus = document.querySelector<HTMLElement>('#disk-library-status');
 
     attachControlModeSwitch();
 
@@ -203,7 +219,7 @@ async function main() {
         () => captureThumbnail(canvas)
     );
 
-    const { apple2, smartport, cpu } = await bootEmulator(
+    const { apple2, smartport, floppy, cpu } = await bootEmulator(
         canvas,
         () => {
             if (recording) {
@@ -319,33 +335,72 @@ async function main() {
         wireApplesoftControlsToggle(applesoftControlsBtn);
         void disk1?.ready;
     } else {
+        const defaultDiskUrl = new URL(DISK_URL, location.href).toString();
+        const progressUpdate = (loaded: number, total: number | undefined): void => {
+            if (total) {
+                bootProgress.value = (loaded / total) * 100;
+                bootStatus.textContent = `Downloading disk image… ${formatMB(loaded)} / ${formatMB(total)} MB`;
+            } else {
+                bootProgress.removeAttribute('value');
+                bootStatus.textContent = `Downloading disk image… ${formatMB(loaded)} MB`;
+            }
+        };
+        const handles = { apple2, smartport, floppy };
+
+        if (DISK_PARAM !== null) {
+            bootOverlayTitle.textContent = 'Loading disk…';
+        }
+
+        let diskLabel = 'Total Replay';
+        let loadError: string | null = null;
         try {
-            const { fromCache } = await loadBlockImageFromUrl(smartport, 1, DISK_URL, (loaded, total) => {
-                if (total) {
-                    bootProgress.value = (loaded / total) * 100;
-                    bootStatus.textContent = `Downloading disk image… ${formatMB(loaded)} / ${formatMB(total)} MB`;
-                } else {
-                    bootProgress.removeAttribute('value');
-                    bootStatus.textContent = `Downloading disk image… ${formatMB(loaded)} MB`;
-                }
-            });
-            if (fromCache) {
-                // Overwrites the "Downloading…" text the progress callback
-                // just set (it still fires once, at 100%, on a cache hit)
-                // so the brief overlay flash reads correctly instead of
-                // implying a download that didn't happen.
+            const result = await loadImageFromUrl(handles, DISK_PARAM ?? defaultDiskUrl, progressUpdate);
+            diskLabel = DISK_PARAM !== null ? result.description : 'Total Replay';
+            if (result.fromCache) {
+                // The progress callback still fires once at 100% on a cache
+                // hit; overwrite its text so the overlay flash reads right.
                 bootProgress.value = 100;
                 bootStatus.textContent = 'Loaded from local cache';
             }
         } catch (err) {
-            statusEl.textContent = 'Failed to load disk image';
-            bootStatus.textContent = 'Failed to load the disk image — check the console and reload.';
             console.error(err);
-            return;
+            loadError = err instanceof Error ? err.message : 'Could not load that disk.';
+            if (DISK_PARAM !== null) {
+                // A bad ?disk= shouldn't leave a dead machine — fall back to
+                // Total Replay and show the error next to the disk name.
+                try {
+                    await loadImageFromUrl(handles, defaultDiskUrl, progressUpdate);
+                    diskLabel = 'Total Replay';
+                } catch (fallbackErr) {
+                    console.error(fallbackErr);
+                    statusEl.textContent = 'Failed to load disk image';
+                    bootStatus.textContent = loadError;
+                    return;
+                }
+            } else {
+                statusEl.textContent = 'Failed to load disk image';
+                bootStatus.textContent = 'Failed to load the disk image — check the console and reload.';
+                return;
+            }
         }
 
         bootOverlay.hidden = true;
-        statusEl.textContent = 'Total Replay';
+        statusEl.textContent = loadError ? `${diskLabel} — ${loadError}` : diskLabel;
+
+        // "Load another disk" panel: curated archive.org titles + a
+        // paste-a-URL box. Choosing one reloads the page with ?disk=.
+        if (diskLibrarySelect && diskUrlInput && diskUrlLoadBtn && diskResetBtn && diskLibraryStatus) {
+            void attachDiskLibrary({
+                currentDiskUrl: DISK_PARAM,
+                elements: {
+                    select: diskLibrarySelect,
+                    urlInput: diskUrlInput,
+                    loadBtn: diskUrlLoadBtn,
+                    resetBtn: diskResetBtn,
+                    status: diskLibraryStatus,
+                },
+            });
+        }
     }
 
     recording = true;
