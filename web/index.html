@@ -32,48 +32,7 @@
                     <span id="disk-status">Loading disk…</span>
                 </div>
                 <div class="controls controls-desktop">
-                    <button
-                        id="applesoft-btn"
-                        title="Reload into a cold-booted Applesoft BASIC prompt, leaving Total Replay (reload without ?boot=basic, or use the link, to return)"
-                    >
-                        ] Applesoft
-                    </button>
                     <button id="fullscreen-btn" title="Fullscreen the game view (Esc to leave)">⛶ Fullscreen</button>
-                </div>
-                <div class="controls controls-disk">
-                    <label class="disk-library-label">
-                        <span>Disk</span>
-                        <select id="disk-library-select" title="Load another Apple II disk from the Internet Archive">
-                            <option value="" disabled selected>Load another disk…</option>
-                        </select>
-                    </label>
-                    <span class="disk-url-group">
-                        <input
-                            id="disk-url-input"
-                            type="url"
-                            class="disk-url-input"
-                            autocomplete="off"
-                            spellcheck="false"
-                            placeholder="…or paste an archive.org disk URL (.dsk .do .po .woz .hdv .2mg)"
-                        />
-                        <button id="disk-url-load-btn" type="button" title="Fetch and boot that disk in place of Total Replay">
-                            Load
-                        </button>
-                        <a
-                            id="disk-find-btn"
-                            class="disk-find-btn"
-                            href="https://archive.org/details/apple_ii_library_4am"
-                            target="_blank"
-                            rel="noopener"
-                            title="Browse Apple II disk images on the Internet Archive (opens a new tab)"
-                        >
-                            Find ↗
-                        </a>
-                    </span>
-                    <button id="disk-reset-btn" type="button" title="Re-mount the built-in Total Replay image">
-                        ⏏ Total Replay
-                    </button>
-                    <span id="disk-library-status" class="disk-basic-status" aria-live="polite"></span>
                 </div>
                 <div class="controls controls-basic">
                     <button id="disk-copy-btn" title="Copy the BASIC program now in memory to the clipboard as a text listing">
@@ -105,19 +64,8 @@
                     <input id="rewind-slider" type="range" min="0" max="0" value="0" disabled />
                     <button id="rewind-5s-btn" title="Rewind 5 seconds (F2, or Backspace while fullscreen)">⏪ -5s</button>
                 </div>
-                <div class="key-legend">
-                    <div class="key-legend-actions">
-                        <span><kbd>← ↑ ↓ →</kbd> <kbd>Return</kbd> <kbd>Esc</kbd> Navigate the launcher and games</span>
-                        <span><kbd>Left Alt</kbd> Open-Apple / button 0 &nbsp; <kbd>Right Alt</kbd> Closed-Apple / button 1</span>
-                        <span><kbd>Delete</kbd> Ctrl-Reset — quit the game back to the menu</span>
-                        <span><kbd>F2</kbd> Rewind 5 seconds (also <kbd>Backspace</kbd> while fullscreen)</span>
-                        <span>🎮 USB/Bluetooth gamepads act as the joystick</span>
-                    </div>
-                    <button id="switch-to-touch-btn" class="control-mode-switch" type="button">
-                        Switch to touch controls
-                    </button>
-                </div>
-                <div class="touch-controls" id="touch-controls">
+                <details class="touch-controls" id="touch-controls" open>
+                    <summary class="section-summary">🎮 Controls</summary>
                     <div class="touch-controls-row">
                         <div class="touch-joystick-group">
                             <div class="touch-joystick" id="touch-joystick" aria-label="Joystick">
@@ -168,7 +116,65 @@
                     <button id="switch-to-keyboard-btn" class="control-mode-switch" type="button">
                         Switch to keyboard controls
                     </button>
-                </div>
+                </details>
+                <details class="key-legend" open>
+                    <summary class="section-summary">🎮 Controls</summary>
+                    <div class="key-legend-actions">
+                        <span><kbd>← ↑ ↓ →</kbd> <kbd>Return</kbd> <kbd>Esc</kbd> Navigate the launcher and games</span>
+                        <span><kbd>Left Alt</kbd> Open-Apple / button 0 &nbsp; <kbd>Right Alt</kbd> Closed-Apple / button 1</span>
+                        <span><kbd>Delete</kbd> Ctrl-Reset — quit the game back to the menu</span>
+                        <span><kbd>F2</kbd> Rewind 5 seconds (also <kbd>Backspace</kbd> while fullscreen)</span>
+                        <span>🎮 USB/Bluetooth gamepads act as the joystick</span>
+                    </div>
+                    <button id="switch-to-touch-btn" class="control-mode-switch" type="button">
+                        Switch to touch controls
+                    </button>
+                </details>
+                <details class="control-section disk-section" id="disk-section" open>
+                    <summary class="section-summary">💾 Disk image</summary>
+                    <div class="controls controls-disk">
+                        <button
+                            id="applesoft-btn"
+                            type="button"
+                            title="Reload into a cold-booted Applesoft BASIC prompt, leaving Total Replay (reload without ?boot=basic, or use the link, to return)"
+                        >
+                            ] Applesoft
+                        </button>
+                        <button id="disk-reset-btn" type="button" title="Re-mount the built-in Total Replay image">
+                            ⏏ Total Replay
+                        </button>
+                        <label class="disk-library-label">
+                            <span>Disk</span>
+                            <select id="disk-library-select" title="Load another Apple II disk from the Internet Archive">
+                                <option value="" disabled selected>Load another disk…</option>
+                            </select>
+                        </label>
+                        <span class="disk-url-group">
+                            <input
+                                id="disk-url-input"
+                                type="url"
+                                class="disk-url-input"
+                                autocomplete="off"
+                                spellcheck="false"
+                                placeholder="…or paste an archive.org disk URL (.dsk .do .po .woz .hdv .2mg)"
+                            />
+                            <button id="disk-url-load-btn" type="button" title="Fetch and boot that disk in place of Total Replay">
+                                Load
+                            </button>
+                            <a
+                                id="disk-find-btn"
+                                class="disk-find-btn"
+                                href="https://archive.org/details/apple_ii_library_4am"
+                                target="_blank"
+                                rel="noopener"
+                                title="Browse Apple II disk images on the Internet Archive (opens a new tab)"
+                            >
+                                Find ↗
+                            </a>
+                        </span>
+                        <span id="disk-library-status" class="disk-basic-status" aria-live="polite"></span>
+                    </div>
+                </details>
                 <input
                     id="touch-type-input"
                     class="soft-kbd-input"

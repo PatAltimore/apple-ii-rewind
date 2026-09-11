@@ -156,9 +156,10 @@ canvas#screen {
     background: #2a2a2a;
 }
 
-/* Desktop-only controls (Applesoft break, fullscreen) share .controls'
-   button styling; their visibility follows .key-legend's rules — see the
-   "Touch vs keyboard UI selection" block near the end of this file. */
+/* Desktop-only controls (fullscreen — a windowed-desktop concept) share
+   .controls' button styling; their visibility follows .key-legend's
+   rules — see the "Touch vs keyboard UI selection" block near the end of
+   this file. */
 
 /* Applesoft-only controls (Copy / Paste program). Hidden by default;
    shown only in applesoft-mode by the rule at the very end of this file
@@ -173,8 +174,18 @@ canvas#screen {
     color: #8c8;
 }
 
-/* "Load another disk" row (Total Replay mode). Hidden in applesoft mode
-   by the .controls rule near the end of this file. */
+/* "Disk image" collapsible section (Total Replay mode): Applesoft break,
+   the curated-disk dropdown, the paste-a-URL box, and Total Replay reset,
+   all together below the rewind bar. Hidden entirely in applesoft mode —
+   see .disk-section in the applesoft-mode block near the end of this
+   file — since the .controls rule there only reaches the inner row, not
+   this <details> wrapper around it. */
+.control-section {
+    display: flex;
+    flex-direction: column;
+    padding: 0.6rem 0.75rem;
+}
+
 .disk-library-label {
     display: flex;
     align-items: center;
@@ -391,11 +402,62 @@ body.applesoft-mode .applesoft-hint {
     transform: translateY(2px);
 }
 
+/* Collapsible sections (native <details>/<summary>, no JS needed) -----
+   Touch controls, keyboard legend, and the disk-image switcher are each
+   a <details> element (default open, so nothing looks different from
+   the old always-expanded panels until a viewer collapses one) styled
+   as a bordered card with a clickable <summary> header. Which of
+   .touch-controls/.key-legend is even relevant to this device/choice is
+   still decided entirely by the "Touch vs keyboard UI selection" rules
+   near the end of this file (display: none/flex on the same element) —
+   unchanged by becoming <details>, since that toggles the whole element
+   including its summary, while [open] independently toggles only the
+   *content* below the summary. */
+.key-legend,
+.touch-controls,
+.control-section {
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    background: #161616;
+}
+
+.section-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #ccc;
+    list-style: none;
+}
+
+.section-summary::-webkit-details-marker {
+    display: none;
+}
+
+.section-summary::before {
+    content: '▸';
+    display: inline-block;
+    color: #6cf;
+    transition: transform 0.15s ease;
+}
+
+details[open] > .section-summary::before {
+    transform: rotate(90deg);
+}
+
+.section-summary:hover {
+    color: #eee;
+}
+
 /* Keyboard legend (desktop) ------------------------------------------- */
 .key-legend {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
     font-size: 0.75rem;
     color: #999;
 }
@@ -434,7 +496,7 @@ body.applesoft-mode .applesoft-hint {
     gap: 0.75rem;
     width: 100%;
     box-sizing: border-box;
-    padding: 0 0.5rem;
+    padding: 0.6rem 0.5rem;
     user-select: none;
     -webkit-user-select: none;
 }
@@ -884,7 +946,8 @@ body.force-keyboard-controls .touch-controls {
 body.applesoft-mode .controls,
 body.applesoft-mode .rewind,
 body.applesoft-mode .key-legend,
-body.applesoft-mode .touch-controls {
+body.applesoft-mode .touch-controls,
+body.applesoft-mode .disk-section {
     display: none;
 }
 
@@ -909,6 +972,15 @@ body.applesoft-mode.applesoft-touch .touch-controls {
 /* Applesoft mode has its own toggle for the touch panel, so the panel's
    built-in "Switch to keyboard/touch controls" link would only confuse. */
 body.applesoft-mode .touch-controls .control-mode-switch {
+    display: none;
+}
+
+/* Same reasoning for the panel's own collapse header: Applesoft mode's
+   "🕹 On-screen controls" toggle already is the show/hide control for
+   this panel, so a second, collapsible header on top of it would just
+   be redundant chrome. [open] still applies, so the joystick stays
+   fully shown — it just can't be collapsed independently here. */
+body.applesoft-mode .touch-controls > .section-summary {
     display: none;
 }
 

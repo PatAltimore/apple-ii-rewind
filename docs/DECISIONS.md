@@ -142,3 +142,51 @@ pasted `.hdv` boots from SmartPort; **⏏ Total Replay** returns cleanly from an
 including floppy → floppy → Total Replay (the chain the old runtime-reset approach hung on);
 a `/details/` URL shows the error; `?boot=basic` still cold-boots Applesoft; snapshot card
 state stays 29 bytes with a floppy mounted.
+
+## 2026-09-11 — Collapsible control sections, Applesoft moved into the disk panel
+
+Touch controls, the keyboard-shortcut legend, and the disk-image switcher are each now a
+native `<details>`/`<summary>` panel below the rewind bar, in that order (touch, keyboard,
+disk), all `open` by default. The `] Applesoft` button moved out of the desktop-only row and
+into the disk-image panel, ahead of the disk dropdown/URL box/Find/⏏ Total Replay — it's
+another way to switch what's booted, so it belongs there rather than paired with Fullscreen.
+
+**No new wrapper elements for touch/keyboard.** `.touch-controls` and `.key-legend` — the
+exact divs the "Touch vs keyboard UI selection" CSS block already toggled `display:none`/
+`flex` on by device (`(pointer:coarse)`) and by the persisted `force-touch-controls`/
+`force-keyboard-controls` choice (ControlModeSwitch.ts) — became `<details>` elements
+directly, with a `<summary class="section-summary">` as their first child. `[open]`
+independently controls the *content* below the summary; `display` (still set by the exact
+same selectors as before) controls whether the whole element, summary included, renders at
+all. This means the collapse behavior needed zero changes to the specificity-sensitive
+exclusivity rules documented in the 2026-09-05 entry — only additive `border`/`padding`/
+`summary` styling. The disk-image panel, having no such per-device exclusivity to reuse,
+got a genuinely new `<details class="control-section disk-section">` wrapper around the
+unchanged `.controls.controls-disk` row; `.disk-section` was added to the existing
+`body.applesoft-mode` hide list (the `.controls` rule there only reaches the inner row, not
+this new outer wrapper).
+
+**Applesoft mode's own touch panel suppresses the new summary.** `.touch-controls` is the
+same element Applesoft mode's "🕹 On-screen controls" toggle shows/hides via
+`body.applesoft-mode.applesoft-touch .touch-controls { display: flex }` — so without
+anything else, a collapse header would appear there too, redundant with
+that toggle. `body.applesoft-mode .touch-controls > .section-summary { display: none }`
+hides just the header (matching the pre-existing suppression of `.control-mode-switch` in
+the same spot); `[open]` still applies underneath, so the joystick stays fully shown, exactly
+as before this change.
+
+Verified live: collapsing/expanding each of the three sections leaves the others untouched;
+"Switch to touch controls" still swaps which of touch/keyboard shows (collapse state
+persists per-section through the swap, since it's independent of the `display` toggle);
+mobile emulation shows touch open + disk open with keyboard absent, matching the requested
+touch → keyboard → disk order; `?boot=basic` hides all three (including `.disk-section`, the
+one case needing a new rule) and its own On-screen-controls toggle shows the joystick with no
+duplicate header; the relocated `] Applesoft` button and the disk Load/Find/⏏ Total Replay
+buttons all still work from their new nesting. `tsc`/`npm run build` clean.
+
+Same-day follow-up: `.touch-controls`' and `.key-legend`'s `<summary>` text started as
+"🕹 Touch controls" / "⌨ Keyboard controls" but was unified to plain "🎮 Controls" for both —
+only one of the two ever renders at a time (the exclusivity CSS above), and each one's own
+content includes the button to switch to the other, so a mode-specific label read as if it
+only covered that mode rather than being the single "controls" section for whichever is
+currently active.
