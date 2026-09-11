@@ -162,6 +162,35 @@ export async function bootEmulator(
     // no-op: A/B/L1/R1 fire nothing and Start doesn't send Esc.
     initGamepad();
 
+    // apple2js's processGamepad() always reads navigator.getGamepads()[0]
+    // — fine with one controller, but some Xbox pads leave one or two
+    // dead entries in the array (raw Bluetooth HID interfaces Chrome
+    // can't map — `mapping: ""` — and never delivers live input for)
+    // *ahead of* the entry Chrome actually drives, which shows up with
+    // `mapping: "standard"` once recognised (e.g. as its built-in
+    // "Xbox 360 Controller (XInput STANDARD GAMEPAD)" over USB).
+    // Confirmed live: a user's controller sat at index 2 behind two
+    // frozen Bluetooth duplicates at 0/1, so index-0 wiring never saw a
+    // single live input. Reorder what apple2js sees — same spirit as
+    // hiding window.Worker for createFloppyCard() above: work around a
+    // vendored assumption without touching vendor/ itself — rather than
+    // patch the vendor file for one hardcoded index.
+    const nativeGetGamepads = navigator.getGamepads.bind(navigator);
+    Object.defineProperty(navigator, 'getGamepads', {
+        configurable: true,
+        value: (): (Gamepad | null)[] => {
+            const pads = nativeGetGamepads();
+            const idx = pads.findIndex((pad) => pad?.mapping === 'standard');
+            if (idx <= 0) {
+                return pads;
+            }
+            const reordered = pads.slice();
+            const [preferred] = reordered.splice(idx, 1);
+            reordered.unshift(preferred);
+            return reordered;
+        },
+    });
+
     const smartport = new SyncSmartPort(cpu);
     io.setSlot(7, smartport);
 

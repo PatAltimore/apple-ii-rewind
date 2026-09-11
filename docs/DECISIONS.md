@@ -225,3 +225,51 @@ Not verified live with a physical controller (no gamepad hardware reachable from
 browser-automation tool used for this session's testing) — verified by reading
 `processGamepad()`/`initGamepad()` to confirm the map was the only missing piece, and that
 `tsc`/`npm run build` stay clean. Asked the user to confirm with their controller.
+
+**Update, same day: the fix above was necessary but not sufficient for the reporting user.**
+After deploying it, the user's Xbox controller (Chrome reports it as
+`Unknown Gamepad (Vendor: 045e Product: 09d2)`, `mapping: ""` — Chrome couldn't match it to
+its Standard Gamepad database) still moved nothing — neither stick nor buttons. Diagnosed
+entirely in the browser console, no app-code changes involved: `navigator.getGamepads()[0]`
+did return a `Gamepad` object (so it's not undetected), but its `.timestamp` was frozen at
+the exact same value across a 5+ second polling loop while the user actively moved the stick
+and pressed buttons — Chrome captured one snapshot at connect time and never received another
+live input report. Cross-checked against Windows' own controller panel (`joy.cpl` →
+Properties): it showed live movement for the same physical device at the same time, so the
+OS/driver *is* getting fresh input — the stall is specifically between the OS and Chrome's
+Gamepad API for this controller/connection combination, not in Windows and not in this app's
+code (which never even gets a chance to see updated axes/button values, since the browser
+itself is handing out a stale, frozen `Gamepad` object). Likely cause going in: a known class
+of Chrome-on-Windows issue with certain Xbox controllers paired over **Bluetooth**, where the
+Gamepad backend gets stuck on the initial HID report. Next thing to try (not yet confirmed):
+a wired USB connection (or the official Xbox Wireless Adapter dongle) instead of Bluetooth.
+**Lesson for future gamepad reports on this project:** always check `gp.timestamp` across a
+polling loop before suspecting `initGamepad()`/button-mapping code again — a frozen timestamp
+means the bug is upstream of anything this app can control.
+
+**Update #2, same day: wired USB still didn't work — but this uncovered a second, genuine
+app bug underneath the browser stall.** After switching from Bluetooth to a wired connection,
+`navigator.getGamepads()` returned **three** entries: index 0 and 1 were still the frozen
+`Unknown Gamepad` Bluetooth duplicates (`mapping: ""`, timestamp never advancing — the
+controller stayed paired over Bluetooth even once plugged in over USB), and index 2 was a
+*new*, correctly recognised `"Xbox 360 Controller (XInput STANDARD GAMEPAD)"` with
+`mapping: "standard"` — Chrome's long-standing behavior of exposing any XInput-compatible pad
+under that exact string. apple2js's `processGamepad()` (`js/ui/gamepad.ts`) hardcodes
+`navigator.getGamepads()[0]` with no way to select a different index, so the app was reading
+the dead Bluetooth entry even with a fully working, standard-mapped controller sitting two
+slots later in the same array.
+
+Fixed in `bootEmulator()` (`EmulatorController.ts`), next to the `initGamepad()` call: rather
+than patch the vendor file for one hardcoded index (this project's established preference —
+see `createFloppyCard()`'s `window.Worker`-hiding trick above for the precedent), wrapped
+`navigator.getGamepads` via `Object.defineProperty` so that whichever entry Chrome reports as
+`mapping: "standard"` is moved to index 0 before apple2js ever sees the array; everything else
+keeps its relative order, and if no entry has a standard mapping the array passes through
+unchanged. **Confirmed live by the reporting user: the wired controller's stick and buttons
+both work correctly on the dev server after this change.**
+
+The frozen-Bluetooth-entry stall itself (Update #1) remains unexplained/unfixed at the browser
+level — wired USB is the reliable path for this controller. If a future report says "gamepad
+still doesn't work" with a controller connected *and* recognised as `mapping: "standard"`, the
+bug is elsewhere; if `getGamepads()` shows multiple entries again, check for stale prior
+pairings (Bluetooth especially) crowding out a working one, the same way this one did.
