@@ -462,6 +462,14 @@ details[open] > .section-summary::before {
     color: #999;
 }
 
+/* Same ::details-content gotcha as .touch-controls above — otherwise the
+   switch-to-touch-controls button sits flush against the shortcut list. */
+.key-legend::details-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
 .key-legend-actions {
     display: flex;
     flex-direction: column;
@@ -499,6 +507,21 @@ details[open] > .section-summary::before {
     padding: 0.6rem 0.5rem;
     user-select: none;
     -webkit-user-select: none;
+}
+
+/* In browsers that implement ::details-content (Chrome 131+, Firefox
+   134+), everything after <summary> is laid out inside that anonymous
+   box instead of directly as a flex child of .touch-controls — so the
+   gap above only ever separates the summary from the content block, and
+   the stick/buttons row, the toggle row, the keys row and the hint all
+   collapse together with zero space between them. Re-declare the same
+   column/gap layout on the pseudo-box so the rows get their spacing
+   back. Browsers without ::details-content just ignore this rule and
+   fall back to the outer .touch-controls flex/gap doing the job. */
+.touch-controls::details-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
 }
 
 .touch-keys-row {
