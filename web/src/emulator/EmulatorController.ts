@@ -1,4 +1,5 @@
 import { Apple2 } from 'js/apple2';
+import { initGamepad } from 'js/ui/gamepad';
 import { Audio } from 'js/ui/audio';
 import { CPU6502 } from '@whscullin/cpu6502';
 import { BLOCK_FORMATS } from 'js/formats/types';
@@ -152,6 +153,14 @@ export async function bootEmulator(
     io.paddle(1, 0.5);
     io.paddle(2, 0.5);
     io.paddle(3, 0.5);
+
+    // apple2js's gamepad button map (js/ui/gamepad.ts) starts out empty —
+    // this app has no settings UI that calls initGamepad() the way
+    // apple2js's own js/ui/apple2.ts does, so without this, a connected
+    // controller's analog stick moves the paddles (that read happens
+    // unconditionally in processGamepad()) but every button press is a
+    // no-op: A/B/L1/R1 fire nothing and Start doesn't send Esc.
+    initGamepad();
 
     const smartport = new SyncSmartPort(cpu);
     io.setSlot(7, smartport);

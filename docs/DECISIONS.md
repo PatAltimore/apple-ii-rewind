@@ -190,3 +190,38 @@ only one of the two ever renders at a time (the exclusivity CSS above), and each
 content includes the button to switch to the other, so a mode-specific label read as if it
 only covered that mode rather than being the single "controls" section for whichever is
 currently active.
+
+Same-day follow-up: converting `.touch-controls`/`.key-legend` to `<details>` above ran into
+`::details-content` — the anonymous box modern Chromium/Firefox now wrap everything after
+`<summary>` in. `flex-direction: column; gap` declared on `.touch-controls`/`.key-legend`
+themselves only ever spaced the summary from that box as a whole; the rows *inside* it (the
+stick/buttons row, the joystick-options toggle row, the keys row, the hint) collapsed flush
+against each other, since inside that anonymous box they're just plain block children with no
+margin. Fixed by re-declaring the same `display: flex; flex-direction: column; gap` on
+`.touch-controls::details-content` / `.key-legend::details-content`; browsers without that
+pseudo-element ignore the rule and keep using the outer element's own flex/gap as before, so
+this is purely additive.
+
+## 2026-09-11 — Gamepad buttons never worked: `initGamepad()` was never called
+
+A connected Xbox controller's analog stick moved the paddles (README already claimed gamepad
+support), but no button did anything — reported live by the user. apple2js's gamepad module
+(`js/ui/gamepad.ts`) keeps its button map in `gamepadMap`, a module-level array that starts
+empty; `processGamepad()` (called every frame from `Apple2.run()`) reads paddle axes into
+`io.paddle()` unconditionally, but only fires `io.buttonDown()`/`keyDown()` for button indices
+present in that map. The map is populated by `initGamepad()` — which apple2js's own reference
+UI (`js/ui/apple2.ts`, a full app this project doesn't use) calls in several places, but which
+this project's from-scratch `main.ts`/`EmulatorController.ts` never called at all. So the
+stick half of "act as the joystick" worked and the button half silently didn't, for every user,
+since gamepad support was added.
+
+Fixed with a single `initGamepad()` call in `bootEmulator()` (`EmulatorController.ts`), right
+after the existing paddle-centering lines — same one-time-setup spot, no args so it takes
+apple2js's `DEFAULT_GAMEPAD` map (Xbox-style layout: `A`/`B`/`L1`/`R1` → paddle buttons 0/1,
+`START` → Esc). No UI for remapping exists or was requested, so the default is left as the
+only option.
+
+Not verified live with a physical controller (no gamepad hardware reachable from the
+browser-automation tool used for this session's testing) — verified by reading
+`processGamepad()`/`initGamepad()` to confirm the map was the only missing piece, and that
+`tsc`/`npm run build` stay clean. Asked the user to confirm with their controller.
