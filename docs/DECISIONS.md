@@ -273,3 +273,50 @@ level — wired USB is the reliable path for this controller. If a future report
 still doesn't work" with a controller connected *and* recognised as `mapping: "standard"`, the
 bug is elsewhere; if `getGamepads()` shows multiple entries again, check for stale prior
 pairings (Bluetooth especially) crowding out a working one, the same way this one did.
+
+## 2026-09-15 — Gamepad D-pad drives the Total Replay menu; Start launches
+
+With the wired controller now correctly seen (see the two updates above), the fire buttons
+and joystick worked for actual gameplay, but the user asked to also be able to navigate the
+launcher menu and start a game from the controller. The stick/paddle values apple2js's
+`processGamepad()` feeds in don't do that — the launcher (like most keyboard-driven games in
+the library) reads real keypresses for navigation, the same reason `TouchControls.ts`'s
+joystick has a separate "Keys" mode (arrow keys with typematic repeat) distinct from its
+"analog" paddle mode. So menu control needed key codes, not paddle-button numbers.
+
+While wiring this up, found a second bug in apple2js's own `BUTTON` enum (`js/ui/types.ts`):
+it's mislabelled from index 6 on relative to the W3C Standard Gamepad layout Chrome actually
+uses (confirmed live in the previous entries — this app's controller reports
+`mapping: "standard"`). Real layout: 6/7 = triggers, 8 = Back/View, 9 = Start, 10/11 =
+stick-click buttons, 12-15 = D-pad Up/Down/Left/Right. apple2js's enum instead has `L3: 6,
+R3: 7, START: 8, SELECT: 9, LOGO: 10, UP: 11, DOWN: 12, LEFT: 13, RIGHT: 14` — every one of
+those wrong by at least one slot, and no entry at all for real D-pad Right (15). Indices 0-5
+(`A, B, X, Y, L1, R1`) are correct, which is why the earlier button-mapping fix (A/B/L1/R1 →
+fire buttons) worked without needing this to be noticed.
+
+`initGamepad()` (`js/ui/gamepad.ts`) falls back to a raw numeric button index for any
+`GamepadConfiguration` key that isn't a recognised `BUTTON` name, so `EmulatorController.ts`'s
+`bootEmulator()` now passes a config that: keeps `A`/`B`/`L1`/`R1` → paddle buttons 0/1
+(unchanged, correct indices); keeps the existing `START: '\x1B'` entry, which — because of the
+mislabelling above — actually targets raw index 8, the real Back/View button, sending Esc
+(same behaviour as before, just now understood correctly rather than by the enum's name);
+adds `SELECT: '\r'`, which — again via the mislabelling — actually targets raw index 9, the
+*real* Start button, sending Return to launch the highlighted game; and adds four raw-indexed
+entries (`12`/`13`/`14`/`15`, bypassing the broken names entirely) mapped to
+`APPLE_KEY.UP/DOWN/LEFT/RIGHT` (`emulator/keyInput.ts` — the same codes `TouchControls.ts`'s
+Keys mode and the physical keyboard path use) for the D-pad. `GamepadConfiguration`'s TS type
+only allows named `BUTTON` keys; the raw-index entries are added via a `Record<string,
+string>` cast, matching what the runtime already supports (`initGamepad`'s `else` branch) but
+the type doesn't express.
+
+Deliberately out of scope for this change: no typematic repeat on the D-pad (each press
+raises exactly one keystroke, like a single keyboard tap — apple2js's gamepad button handling
+is edge-triggered, unlike `TouchControls.ts`'s `HeldKey`-based repeat-while-held; adding that
+here would mean polling the gamepad from the render loop instead of relying on
+`processGamepad()`'s own per-frame button-edge detection) and no controller mapping for
+Ctrl-Reset/quit-to-menu (the physical **⏏ Menu** button's job) — only asked for menu
+navigation and launching.
+
+Not verified live (same limitation as the earlier gamepad entries — no gamepad hardware
+reachable from this session's tooling); `tsc`/`npm run build` stay clean. Asked the user to
+confirm with their controller.

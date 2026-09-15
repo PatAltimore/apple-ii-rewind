@@ -1,5 +1,6 @@
 import { Apple2 } from 'js/apple2';
 import { initGamepad } from 'js/ui/gamepad';
+import type { GamepadConfiguration } from 'js/ui/types';
 import { Audio } from 'js/ui/audio';
 import { CPU6502 } from '@whscullin/cpu6502';
 import { BLOCK_FORMATS } from 'js/formats/types';
@@ -10,6 +11,7 @@ import type Apple2IO from 'js/apple2io';
 import SyncSmartPort from './SyncSmartPort';
 import { getCachedDisk, putCachedDisk } from './DiskCache';
 import { isBlockFormat, isFloppyFormat, parseImageUrl, sniffImage, toFetchableUrl } from './imageFormat';
+import { APPLE_KEY } from './keyInput';
 
 export interface EmulatorHandles {
     apple2: Apple2;
@@ -159,8 +161,48 @@ export async function bootEmulator(
     // apple2js's own js/ui/apple2.ts does, so without this, a connected
     // controller's analog stick moves the paddles (that read happens
     // unconditionally in processGamepad()) but every button press is a
-    // no-op: A/B/L1/R1 fire nothing and Start doesn't send Esc.
-    initGamepad();
+    // no-op. A/B/L1/R1 fire the two paddle buttons (games); the D-pad and
+    // Start/Back drive the Total Replay *menu*, which (like most
+    // keyboard-driven games in the library — see TouchControls.ts's
+    // "Keys" joystick mode for the same idea) reads real keypresses, not
+    // paddle position, so those are wired to APPLE_KEY arrow/Return/Esc
+    // codes rather than to a paddle button.
+    //
+    // apple2js's BUTTON enum (js/ui/types.ts) is mislabelled from index 6
+    // on relative to the W3C Standard Gamepad layout Chrome actually uses
+    // once it recognises a pad (confirmed live: Chrome reported this
+    // app's test controller as `mapping: "standard"`) — e.g. BUTTON.UP is
+    // 11, but the real D-pad Up is button 12 (11 is really the
+    // right-stick click), and BUTTON.START/SELECT (8/9) are actually
+    // Back/Start, not Start/Select. initGamepad() falls back to a raw
+    // numeric button index for any config key that isn't a known BUTTON
+    // name, so the D-pad below is wired by its real standard-mapping
+    // index instead of through those mislabelled names — only A/B/L1/R1
+    // (correct in the enum, and already apple2js's own default) use the
+    // named form.
+    const gamepadConfig: GamepadConfiguration = {
+        A: 0,
+        B: 1,
+        L1: 0,
+        R1: 1,
+        // Raw index 8: Back/View on a real pad (mislabelled "START" in
+        // the enum) — kept as apple2js's own default: Esc backs out of a
+        // search/submenu in the launcher.
+        START: '\x1B',
+        // Raw index 9: the *real* Start button (mislabelled "SELECT" in
+        // the enum) — Return launches the highlighted game.
+        SELECT: '\r',
+    };
+    const DPAD_KEYS: Record<number, number> = {
+        12: APPLE_KEY.UP,
+        13: APPLE_KEY.DOWN,
+        14: APPLE_KEY.LEFT,
+        15: APPLE_KEY.RIGHT,
+    };
+    for (const [rawIndex, keyCode] of Object.entries(DPAD_KEYS)) {
+        (gamepadConfig as Record<string, string>)[rawIndex] = String.fromCharCode(keyCode);
+    }
+    initGamepad(gamepadConfig);
 
     // apple2js's processGamepad() always reads navigator.getGamepads()[0]
     // — fine with one controller, but some Xbox pads leave one or two
