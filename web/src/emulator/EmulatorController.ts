@@ -161,12 +161,15 @@ export async function bootEmulator(
     // apple2js's own js/ui/apple2.ts does, so without this, a connected
     // controller's analog stick moves the paddles (that read happens
     // unconditionally in processGamepad()) but every button press is a
-    // no-op. A/B/L1/R1 fire the two paddle buttons (games); the D-pad and
-    // Start/Back drive the Total Replay *menu*, which (like most
-    // keyboard-driven games in the library — see TouchControls.ts's
-    // "Keys" joystick mode for the same idea) reads real keypresses, not
-    // paddle position, so those are wired to APPLE_KEY arrow/Return/Esc
-    // codes rather than to a paddle button.
+    // no-op. A/L1 fire paddle button 0 (open-apple) and B/R1 fire paddle
+    // button 1 (closed-apple) — X is intentionally left out of this map
+    // (not a no-op: see main.ts's "X rewinds 5s" wiring, an app-level
+    // action outside anything initGamepad()'s key/paddle-button map can
+    // express); the D-pad and Start/Back drive the Total Replay *menu*,
+    // which (like most keyboard-driven games in the library — see
+    // TouchControls.ts's "Keys" joystick mode for the same idea) reads
+    // real keypresses, not paddle position, so those are wired to
+    // APPLE_KEY arrow/Return/Esc codes rather than to a paddle button.
     //
     // apple2js's BUTTON enum (js/ui/types.ts) is mislabelled from index 6
     // on relative to the W3C Standard Gamepad layout Chrome actually uses

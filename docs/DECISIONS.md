@@ -320,3 +320,43 @@ navigation and launching.
 Not verified live (same limitation as the earlier gamepad entries — no gamepad hardware
 reachable from this session's tooling); `tsc`/`npm run build` stay clean. Asked the user to
 confirm with their controller.
+
+## 2026-09-15 — Gamepad B button rewinds 5 seconds
+
+Asked for directly: B → rewind. Unlike the D-pad/Start/Back wiring above, rewind isn't
+something `initGamepad()`'s config can express — it's not an Apple II keystroke or paddle
+button, it's an app-level action (`RewindScrubber.ts`'s `attachRewindButton`: jump the rewind
+buffer, restore the snapshot, truncate the diverged future) triggered today only by the
+**⏪ -5s** button's click and the F2/fullscreen-Backspace hotkeys, both DOM events outside
+apple2js's per-frame gamepad handling entirely.
+
+Freed up B for this rather than layering it on top of B's existing fire-button duty: L1
+already fires paddle button 0 alongside A, but R1 was the *only* button firing paddle button 1
+— removing B from `EmulatorController.ts`'s `gamepadConfig` (raw index 1) leaves R1 as the
+sole button-1 fire, so gameplay loses no coverage (both paddle buttons still have a dedicated
+fire button, just not a redundant second one on button-1's side).
+
+Wired in `main.ts` instead, where the rewind button element and the emulator's `tick` callback
+(already passed to `bootEmulator()` for the rewind-buffer recorder/scrubber) are both in
+scope, rather than in `EmulatorController.ts`: polls `navigator.getGamepads()[0].buttons[1]`
+every frame (index 0 already reordered to the "standard"-mapped pad by the earlier
+`Object.defineProperty` patch), edge-detects press vs. held, and calls `rewind5sBtn.click()`
+on the press edge — reusing `attachRewindButton`'s existing `doRewind` through its DOM handler
+rather than duplicating that logic. The click is deferred with `queueMicrotask` rather than
+called straight from the tick callback: `doRewind` calls `apple2.stop()`/`apple2.run()`, and
+apple2js's run loop calls `this.tick()` *before* its own `if (!this.paused) requestAnimationFrame(runFn)`
+check each frame — calling `apple2.run()` synchronously from inside that tick, before the
+current frame's own re-schedule check runs, risks two overlapping `requestAnimationFrame`
+chains both driving `runFn`. A microtask runs after the current frame's tick callback (and the
+run loop's own re-schedule check) has already returned, making it no different in timing from
+the button-click/F2 paths, which are always separate, later DOM events relative to any given
+frame.
+
+Not verified live — same tooling limitation as the other gamepad entries; `tsc`/
+`npm run build` stay clean. Asked the user to confirm with their controller.
+
+**Same-day follow-up:** the user asked to swap this — B goes back to firing paddle button 1
+alongside R1 (restored `B: 1` in `EmulatorController.ts`'s `gamepadConfig`, raw index 1), and
+X (raw index 2, correctly labelled in apple2js's `BUTTON` enum — the mislabelling above only
+starts at index 6) takes over the rewind-5s polling in `main.ts` instead. Mechanically
+identical to the B version, just watching `buttons[2]` instead of `buttons[1]`.

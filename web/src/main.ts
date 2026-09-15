@@ -219,6 +219,27 @@ async function main() {
         () => captureThumbnail(canvas)
     );
 
+    // Xbox controller's X button (raw index 2) rewinds 5 seconds — an
+    // app-level action (jumps the rewind buffer, same as the ⏪ -5s
+    // button/F2 hotkey — see RewindScrubber.ts's attachRewindButton), not
+    // an Apple II keystroke, so it can't go through EmulatorController's
+    // initGamepad() key/paddle-button map (see that file's gamepad
+    // comment: X is deliberately left out of that map for this reason —
+    // B, previously used for rewind here, went back to firing paddle
+    // button 1 alongside R1).
+    // Polled here instead, in the same per-frame tick apple2js's own
+    // gamepad polling uses; navigator.getGamepads()[0] is already
+    // reordered by EmulatorController's patch to be whichever pad Chrome
+    // recognises as "standard". The button click is deferred with
+    // queueMicrotask rather than called straight from this tick: doRewind
+    // calls apple2.stop()/apple2.run(), and running that synchronously
+    // *inside* apple2's own rAF frame (this tick callback fires from
+    // partway through it) risks scheduling two overlapping run loops: a
+    // microtask runs after the current frame's callback returns, so it's
+    // no different from the button/F2 paths, which are always driven by
+    // a separate DOM event outside the frame's call stack.
+    let gamepadRewindWasPressed = false;
+
     const { apple2, smartport, floppy, cpu } = await bootEmulator(
         canvas,
         () => {
@@ -226,6 +247,12 @@ async function main() {
                 recorder.onTick();
             }
             scrubberHandle?.syncRange();
+
+            const gamepadRewindPressed = navigator.getGamepads()[0]?.buttons[2]?.pressed ?? false;
+            if (gamepadRewindPressed && !gamepadRewindWasPressed) {
+                queueMicrotask(() => rewind5sBtn.click());
+            }
+            gamepadRewindWasPressed = gamepadRewindPressed;
         },
         { emptySlotStubs: BASIC_BOOT_MODE }
     );
