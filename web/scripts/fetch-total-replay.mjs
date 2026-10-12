@@ -37,12 +37,26 @@ if (existsSync(dest)) {
 }
 
 console.log(`Downloading Total Replay v${TOTAL_REPLAY.version} (${(TOTAL_REPLAY.bytes / 1048576).toFixed(0)} MB) from archive.org…`);
-const response = await fetch(TOTAL_REPLAY.url, { redirect: 'follow' });
-if (!response.ok) {
-    console.error(`Download failed: ${response.status} ${response.statusText}`);
+// archive.org storage nodes return transient 5xx errors; retry with backoff.
+let data;
+for (let attempt = 1; attempt <= 5 && !data; attempt++) {
+    try {
+        const response = await fetch(TOTAL_REPLAY.url, { redirect: 'follow' });
+        if (response.ok) {
+            data = Buffer.from(await response.arrayBuffer());
+            break;
+        }
+        console.error(`Download failed (attempt ${attempt}/5): ${response.status} ${response.statusText}`);
+    } catch (err) {
+        console.error(`Download failed (attempt ${attempt}/5): ${err.message}`);
+    }
+    if (attempt < 5) {
+        await new Promise((resolve) => setTimeout(resolve, 5000 * 2 ** (attempt - 1)));
+    }
+}
+if (!data) {
     process.exit(1);
 }
-const data = Buffer.from(await response.arrayBuffer());
 const digest = sha256(data);
 if (digest !== TOTAL_REPLAY.sha256) {
     console.error(`Checksum mismatch.\n  expected ${TOTAL_REPLAY.sha256}\n  got      ${digest}`);

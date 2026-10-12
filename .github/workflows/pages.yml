@@ -24,6 +24,13 @@ jobs:
             - uses: actions/setup-node@v4
               with:
                   node-version: 20
+            - name: Cache disk images
+              # The fetch scripts skip files that are already present and
+              # checksum-valid, so archive.org is only hit on a cache miss.
+              uses: actions/cache@v4
+              with:
+                  path: web/public/disks
+                  key: disks-${{ hashFiles('web/scripts/fetch-total-replay.mjs', 'web/scripts/fetch-basic-programs.mjs') }}
             - name: Fetch Total Replay disk image
               # Not committed to the repo; see README "Getting the disk image".
               run: node web/scripts/fetch-total-replay.mjs
