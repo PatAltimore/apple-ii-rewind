@@ -20,7 +20,7 @@ The template used localStorage with base64-encoded snapshots. With a library of 
 
 ## 2026-09-05 — Do not commit the disk image
 
-`web/public/disks/TotalReplay.hdv` (32MB, v6.1, sha256 `7434fb5d…64be`) was committed in the first revision and then removed: it is a collection of copyrighted games, and 32MB of binary in every clone is unwelcome. `web/scripts/fetch-total-replay.mjs` (`npm run fetch-disk`) downloads it from archive.org and verifies the checksum; the Azure workflow runs it before each build. Trade-off: builds now depend on archive.org being reachable. The blob remains in the repo's early history unless that is rewritten.
+`web/public/disks/TotalReplay.hdv` (32MB, v6.1, sha256 `7434fb5d…64be`) was committed in the first revision and then removed: it is a collection of copyrighted games, and 32MB of binary in every clone is unwelcome. `web/scripts/fetch-total-replay.mjs` (`npm run fetch-disk`) downloads it from archive.org and verifies the checksum; the Pages workflow runs it before each build. Trade-off: builds now depend on archive.org being reachable. The blob remains in the repo's early history unless that is rewritten.
 
 ## 2026-09-05 — F2 for rewind, Delete for Ctrl-Reset
 

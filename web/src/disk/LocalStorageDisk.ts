@@ -18,8 +18,8 @@ const INDEX_KEY = `${NS}:index`;
 const SEED_KEY = `${NS}:seed-version`;
 const FILE_PREFIX = `${NS}:file:`;
 
-const MANIFEST_URL = '/disks/programs/manifest.json';
-const PROGRAMS_BASE = '/disks/programs/';
+const MANIFEST_URL = `${import.meta.env.BASE_URL}disks/programs/manifest.json`;
+const PROGRAMS_BASE = `${import.meta.env.BASE_URL}disks/programs/`;
 
 const MAX_NAME_LENGTH = 30;
 

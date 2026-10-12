@@ -94,6 +94,8 @@ function apple2RamAliasingFix(): Plugin {
 }
 
 export default defineConfig({
+    // Relative base so the build works under a GitHub Pages project path.
+    base: './',
     plugins: [
         apple2RomImportExtensionFix(),
         apple2RamAliasingFix(),

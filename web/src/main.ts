@@ -21,7 +21,7 @@ import { createDiskCommandHandler } from './disk/commands';
 import { compileTextToProgram, readProgramText, validateListing } from './emulator/applesoft/program';
 import type { CPU6502 } from '@whscullin/cpu6502';
 
-const DISK_URL = '/disks/TotalReplay.hdv';
+const DISK_URL = `${import.meta.env.BASE_URL}disks/TotalReplay.hdv`;
 
 /**
  * `?boot=basic` skips mounting Total Replay's drive entirely and lets the

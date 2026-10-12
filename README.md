@@ -2,7 +2,7 @@
 
 A browser-playable Apple II running [Total Replay](https://archive.org/details/TotalReplay) (4am's curated hard-drive collection of hundreds of Apple II games), with a gameplay rewind buffer, save/load states, and on-screen joystick and buttons for phones and tablets.
 
-Play it at [https://red-island-06620351e.3.azurestaticapps.net/](https://red-island-06620351e.3.azurestaticapps.net/). The first visit downloads the 32 MB disk image; the browser then caches it (via the Cache Storage API, not just HTTP headers), so later visits skip the download and boot straight from the cached copy. Clearing site data, or a private/incognito window, forces a fresh download.
+Play it at [https://pataltimore.github.io/apple-ii-rewind/](https://pataltimore.github.io/apple-ii-rewind/). The first visit downloads the 32 MB disk image; the browser then caches it (via the Cache Storage API, not just HTTP headers), so later visits skip the download and boot straight from the cached copy. Clearing site data, or a private/incognito window, forces a fresh download.
 
 Built from the [prince-of-persia-assist](https://github.com/PatAltimore/prince-of-persia-assist) project as a template, minus that game's hints, cheats, and source-code panes.
 
@@ -54,11 +54,11 @@ npm run fetch-disk
 
 That downloads `Total Replay v6.1.hdv` from [archive.org/details/TotalReplay](https://archive.org/details/TotalReplay) to `web/public/disks/TotalReplay.hdv` and verifies its SHA-256 (`7434fb5d…64be`). To do it by hand instead: download the `.hdv` from that page (or from the [Total Replay releases](https://github.com/a2-4am/4cade/releases)) and save it as `web/public/disks/TotalReplay.hdv`. The `disks/` folder is gitignored, so it won't be committed by accident. If archive.org publishes a newer build, update the URL and checksum in `web/scripts/fetch-total-replay.mjs`, **and** bump `DISK_VERSION` in `web/src/emulator/DiskCache.ts` — otherwise browsers that already cached the old build keep serving it instead of fetching the new one — after confirming it boots.
 
-The Azure workflow runs the same script before every build, so deployments never depend on the file being checked in.
+The Pages workflow runs the same script before every build, so deployments never depend on the file being checked in.
 
 ### The Applesoft-mode programs
 
-`?boot=basic` mode's disk of classic BASIC programs is **not** in this repo either — the programs are Apple-copyrighted. `npm run fetch-programs` (`web/scripts/fetch-basic-programs.mjs`) downloads a few DOS 3.3 disk images from archive.org, verifies their SHA-256, reads their catalogs, and writes each Applesoft program's tokenized image to `web/public/disks/programs/` (gitignored) with a `manifest.json`. `npm run dev` runs it automatically the first time; the Azure workflow runs it before every build. To change the set, edit `SOURCES` in that script (leave `sha256: null` on a new disk and it prints the hash it computed).
+`?boot=basic` mode's disk of classic BASIC programs is **not** in this repo either — the programs are Apple-copyrighted. `npm run fetch-programs` (`web/scripts/fetch-basic-programs.mjs`) downloads a few DOS 3.3 disk images from archive.org, verifies their SHA-256, reads their catalogs, and writes each Applesoft program's tokenized image to `web/public/disks/programs/` (gitignored) with a `manifest.json`. `npm run dev` runs it automatically the first time; the Pages workflow runs it before every build. To change the set, edit `SOURCES` in that script (leave `sha256: null` on a new disk and it prints the hash it computed).
 
 ## Running locally
 
@@ -75,7 +75,7 @@ The repo uses git submodules; clone with `--recurse-submodules` or run `git subm
 
 ## Deployment
 
-Hosted on Azure Static Web Apps (Free tier) via `.github/workflows/azure-static-web-apps.yml`, which builds `web/` (`app_location: "web"`, `output_location: "dist"`, no API) on every push to `main` and on pull requests (with PR preview environments). The workflow needs a repository secret named `AZURE_STATIC_WEB_APPS_API_TOKEN` holding the Static Web App's deployment token (*Overview → Manage deployment token* in the Azure portal, or `az staticwebapp secrets list`).
+Hosted on GitHub Pages via `.github/workflows/pages.yml`, which fetches the disk images, builds `web/` (`npm run build` → `web/dist`, with a relative Vite `base` so it works under the `/apple-ii-rewind/` project path) and deploys on every push to `main`. One-time setup: repo *Settings → Pages → Source: GitHub Actions*.
 
 ```bash
 cd web

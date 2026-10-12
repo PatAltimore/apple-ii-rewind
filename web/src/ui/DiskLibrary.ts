@@ -35,7 +35,7 @@ export interface DiskLibraryOptions {
     elements: DiskLibraryElements;
 }
 
-const LIBRARY_URL = '/disks/library.json';
+const LIBRARY_URL = `${import.meta.env.BASE_URL}disks/library.json`;
 const CUSTOM_OPTION_VALUE = '__custom__';
 
 function fileNameOf(url: string): string {
